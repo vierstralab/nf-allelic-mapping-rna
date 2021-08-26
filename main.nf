@@ -1,46 +1,43 @@
 #!/usr/bin/env nextflow
 
-params.outdir='output'
-
+params.samples_file='/tmp/metadata.txt'
 params.genotype_file='/net/seq/data/projects/regulotyping-h.CD3+/genotyping/output/calls/all.filtered.snps.annotated.vcf.gz'
-params.genotypes_dir='/net/seq/data/projects/regulotyping-h.CD3+/genotyping/output/h5'
-
 params.genome='/net/seq/data/genomes/human/GRCh38/noalts/GRCh38_no_alts'
-nuclear_chroms = "$params.genome" + ".nuclear.txt"
-
 
 //heterzygous filtering parameters
 params.min_GQ=50 // Minimum genotype quality
 params.min_DP=12 // Minimum read depth over SNP
 params.min_AD=4 // Minimum reads per alleles
 
+params.outdir='output'
 
-// DONORS = Channel.create()
-// SAMPLES_AGGREGATIONS = Channel.create()
+//DO NOT EDIT BELOW
+
+nuclear_chroms = "$params.genome" + ".nuclear.txt"
+genome_chrom_sizes_file="$params.genome"  + ".chrom_sizes"
+
 
 Channel
-	.fromPath("/tmp/metadata.txt")
+	.fromPath(params.samples_file)
 	.splitCsv(header:true, sep:'\t')
-	.map{ row -> tuple( row.donor_id, row.ag_number, row.bamfile ) }
+	.map{ row -> tuple( row.indiv_id, row.ag_number, row.bamfile ) }
 	.tap{ SAMPLES_AGGREGATIONS }
 	.map{ it[0] }
 	.unique()
-	.tap{ DONORS }
+	.tap{ INDIVS }
 
 // Make a heterozyguous sites file for each donor
 // There some filtering at this step to make sure the genotype
 // are reliable and informative
 
 process het_sites {
-	tag "${donor_id}"
+	tag "${indiv_id}"
 
 	publishDir params.outdir + "/het_sites", mode: 'copy'
 
-	queue 'queue1'
-
 	input:
-	val(donor_id) from DONORS
-	file genotype_file from file("${params.genotype_file}")
+	val(indiv_id) from INDIVS
+	file genotype_file from file(params.genotype_file)
 	file '*' from file("${params.genotype_file}.csi")
 
 	val min_DP from params.min_DP
@@ -48,12 +45,12 @@ process het_sites {
 	val min_GQ from params.min_GQ
 
 	output:
-	set val(donor_id), file("${donor_id}.bed.gz"), file("${donor_id}.bed.gz.tbi") into HET_SITES
+	set val(indiv_id), file("${indiv_id}.bed.gz"), file("${indiv_id}.bed.gz.tbi") into HET_SITES
 
 	script:
 	"""
 	bcftools view \
-		-s ${donor_id} ${genotype_file} \
+		-s ${indiv_id} ${genotype_file} \
 	| bcftools query \
 		-i'GT="het"' \
 		-f"%CHROM\\t%POS0\\t%POS\\t%ID\\t%REF\\t%ALT\\t[%GQ\\t%AD{0}\\t%AD{1}\\t%DP]\\n" \
@@ -68,41 +65,62 @@ process het_sites {
 		}' \
 	| sort-bed - \
 	| bgzip -c \
-	> ${donor_id}.bed.gz
+	> ${indiv_id}.bed.gz
 
-	tabix -p bed ${donor_id}.bed.gz
+	tabix -p bed ${indiv_id}.bed.gz
+	"""
+}
+
+
+process generate_h5_tables {
+
+	scratch true
+
+	input:
+		file vcf_file from file(params.genotype_file)
+		file chrom_sizes from file(genome_chrom_sizes_file)
+
+	output:
+		file '*.h5' into GENOTYPES_HDF
+
+	script:
+	"""
+	chroms=("\$(tabix -l ${vcf_file})")
+	for chrom in \${chroms[@]}; do
+		bcftools view -r \${chrom} -Oz ${vcf_file} > ${chrom}.vcf.gz
+		bcftools index ${chrom}.vcf.gz
+	done
+
+	gzip -c ${chrom_sizes} > chrom_sizes.txt.gz
+
+	snp2h5 --chrom chromsizes.txt.gz \
+		--format vcf \
+		--haplotype haplotypes.h5 \
+		--snp_index snp_index.h5 \
+		--snp_tab snp_tab.h5 \
+		*.vcf.gz
 	"""
 }
 
 process remap_bamfiles {
-	tag "${donor_id}:AG${ag_number}"
+	tag "${indiv_id}:AG${ag_number}"
 
 	scratch true
-	publishDir params.outdir + "/remapped", mode: 'copy'
+	//publishDir params.outdir + "/remapped", mode: 'copy'
 
 	cpus 2
 	module 'python/3.6.4'
 
 	input:
-	set val(donor_id), val(ag_number), val(bam_file) from SAMPLES_AGGREGATIONS
-	val genotypes_dir from params.genotypes_dir
+	set val(indiv_id), val(ag_number), val(bam_file) from SAMPLES_AGGREGATIONS
 
-	file genome from file(params.genome)
-	file '*' from file("${params.genome}.amb")
-	file '*' from file("${params.genome}.ann")
-	file '*' from file("${params.genome}.bwt")
-	file '*' from file("${params.genome}.fai")
-	file '*' from file("${params.genome}.pac")
-	file '*' from file("${params.genome}.sa")
-
+	file genome from file(${params.genome}) // doesn't actually make a file
 	file nuclear_chroms from file(nuclear_chroms)
-
-	file genotypes_snp_tab from file("${params.genotypes_dir}/snp_tab.h5")
-	file genotypes_snp_index from file("${params.genotypes_dir}/snp_index.h5")
-	file genotypes_haplotypes from file("${params.genotypes_dir}/haplotypes.h5")
+	file '*' from file("${params.genome}.{amb,ann,bwt,fai,pac,sa}")
+	file '*' from GENOTYPES_HDF.collect()
 	
 	output:
-	set val(donor_id), val(ag_number), file("${ag_number}.bam"), file("${ag_number}.bam.bai"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
+	set val(indiv_id), val(ag_number), file("${ag_number}.bam"), file("${ag_number}.bam.bai"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
 
 	script:
 	"""
@@ -126,10 +144,10 @@ process remap_bamfiles {
 		--is_paired_end \
 		--is_sorted \
 		--output_dir \${PWD} \
-		--snp_tab ${genotypes_snp_tab} \
-		--snp_index ${genotypes_snp_index} \
-		--haplotype ${genotypes_haplotypes}\
-		--samples ${donor_id} \
+		--snp_tab snp_tab.h5 \
+		--snp_index snp_index.h5  \
+		--haplotype haplotype.h5 \
+		--samples ${indiv_id} \
 		reads.rmdup.sorted.bam
 
 	## step 3 -- re-align reads
@@ -197,29 +215,27 @@ REMAPPED_READS
 	.set{ REMAPPED_READS_INDIV }
 
 process count_reads {
-	tag "${donor_id}:${ag_number}"
+	tag "${indiv_id}:${ag_number}"
 
 	publishDir params.outdir + "/count_reads", mode: 'copy'
 
 	module 'python/3.6.4'
 
 	input:
-	set val(donor_id), val(ag_number), file(bam_all_file), file(bam_all_index_file), file(bam_passing_file), file(bam_passing_index_file), file(het_sites_file), file(het_sites_index_file) from REMAPPED_READS_INDIV
+	set val(indiv_id), val(ag_number), file(bam_all_file), file(bam_all_index_file), file(bam_passing_file), file(bam_passing_index_file), file(het_sites_file), file(het_sites_index_file) from REMAPPED_READS_INDIV
 
 	output:
-	set val(donor_id), val(ag_number), file("${ag_number}.bed.gz"), file("${ag_number}.bed.gz.tbi") into COUNT_READS
+	set val(indiv_id), val(ag_number), file("${ag_number}.bed.gz"), file("${ag_number}.bed.gz.tbi") into COUNT_READS_LIST, COUNT_READS_FILES
 
 	script:
 	"""
-	python3 /net/seq/data/projects/regulotyping-h.CD3+/count_tags_pileup.py \
+	count_tags_pileup.py \
 		${het_sites_file} ${bam_all_file} ${bam_passing_file} \
 	| sort-bed - | bgzip -c > ${ag_number}.bed.gz
 
 	tabix -p bed ${ag_number}.bed.gz
 	"""
 }
-
-COUNT_READS.into{ COUNT_READS_LIST; COUNT_READS_FILES }
 
 COUNT_READS_LIST
 	.map{ [it[1], it[0], it[2].name].join("\t") }
