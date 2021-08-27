@@ -94,12 +94,12 @@ process generate_h5_tables {
 
 	gzip -c ${chrom_sizes} > chrom_sizes.txt.gz
 
-	snp2h5 --chrom chromsizes.txt.gz \
+	snp2h5 --chrom chrom_sizes.txt.gz \
 		--format vcf \
 		--haplotype haplotypes.h5 \
 		--snp_index snp_index.h5 \
 		--snp_tab snp_tab.h5 \
-		*.vcf.gz
+		chr*.vcf.gz
 	"""
 }
 
@@ -117,8 +117,14 @@ process remap_bamfiles {
 	set val(indiv_id), val(ag_number), val(bam_file) from SAMPLES_AGGREGATIONS
 
 	file genome from file(params.genome) // doesn't actually make a file
+	file '*' from file("${params.genome}.amb")
+  	file '*' from file("${params.genome}.ann")
+  	file '*' from file("${params.genome}.bwt")
+  	file '*' from file("${params.genome}.fai")
+  	file '*' from file("${params.genome}.pac")
+  	file '*' from file("${params.genome}.sa")
+	
 	file nuclear_chroms from file(nuclear_chroms)
-	file '*' from file("${params.genome}.{amb,ann,bwt,fai,pac,sa}")
 	file '*' from GENOTYPES_HDF.collect()
 	
 	output:
@@ -148,7 +154,7 @@ process remap_bamfiles {
 		--output_dir \${PWD} \
 		--snp_tab snp_tab.h5 \
 		--snp_index snp_index.h5  \
-		--haplotype haplotype.h5 \
+		--haplotype haplotypes.h5 \
 		--samples ${indiv_id} \
 		reads.rmdup.sorted.bam
 
