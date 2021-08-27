@@ -20,7 +20,7 @@ genome_chrom_sizes_file="$params.genome"  + ".chrom_sizes"
 Channel
 	.fromPath(params.samples_file)
 	.splitCsv(header:true, sep:'\t')
-	.map{ row -> tuple( row.indiv_id, row.ag_number, row.bamfile ) }
+	.map{ row -> tuple( row.indiv_id, row.ag_number, row.bam_file ) }
 	.tap{ SAMPLES_AGGREGATIONS }
 	.map{ it[0] }
 	.unique()
