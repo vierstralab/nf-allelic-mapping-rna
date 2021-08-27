@@ -33,7 +33,7 @@ Channel
 process het_sites {
 	tag "${indiv_id}"
 
-	publishDir params.outdir + "/het_sites", mode: 'copy'
+	publishDir params.outdir + "/het_sites", mode: 'symlink'
 
 	input:
 	val(indiv_id) from INDIVS
@@ -78,6 +78,7 @@ process generate_h5_tables {
 
 	input:
 		file vcf_file from file(params.genotype_file)
+		file '*' from file("${params.genotype_file}.csi")
 		file chrom_sizes from file(genome_chrom_sizes_file)
 
 	output:
@@ -87,8 +88,8 @@ process generate_h5_tables {
 	"""
 	chroms=("\$(tabix -l ${vcf_file})")
 	for chrom in \${chroms[@]}; do
-		bcftools view -r \${chrom} -Oz ${vcf_file} > ${chrom}.vcf.gz
-		bcftools index ${chrom}.vcf.gz
+		bcftools view -r \${chrom} -Oz ${vcf_file} > \${chrom}.vcf.gz
+		bcftools index \${chrom}.vcf.gz
 	done
 
 	gzip -c ${chrom_sizes} > chrom_sizes.txt.gz
@@ -106,7 +107,8 @@ process remap_bamfiles {
 	tag "${indiv_id}:AG${ag_number}"
 
 	scratch true
-	//publishDir params.outdir + "/remapped", mode: 'copy'
+
+	publishDir params.outdir + "/remapped", mode: 'symlink'
 
 	cpus 2
 	module 'python/3.6.4'
@@ -114,7 +116,7 @@ process remap_bamfiles {
 	input:
 	set val(indiv_id), val(ag_number), val(bam_file) from SAMPLES_AGGREGATIONS
 
-	file genome from file(${params.genome}) // doesn't actually make a file
+	file genome from file(params.genome) // doesn't actually make a file
 	file nuclear_chroms from file(nuclear_chroms)
 	file '*' from file("${params.genome}.{amb,ann,bwt,fai,pac,sa}")
 	file '*' from GENOTYPES_HDF.collect()
@@ -217,7 +219,7 @@ REMAPPED_READS
 process count_reads {
 	tag "${indiv_id}:${ag_number}"
 
-	publishDir params.outdir + "/count_reads", mode: 'copy'
+	publishDir params.outdir + "/count_reads", mode: 'symlink'
 
 	module 'python/3.6.4'
 
@@ -251,7 +253,7 @@ COUNT_READS_FILES
 	.set{ COUNT_READS_ALL_FILES }
 
 process recode_vcf {
-	publishDir params.outdir + "/vcf", mode: 'copy'
+	publishDir params.outdir + "/vcf", mode: 'symlink'
 
 	module 'python/3.6.4'
 
@@ -276,4 +278,4 @@ process recode_vcf {
 	bcftools index allele_counts.vcf.gz
 
 	"""
-}
+c}
