@@ -1,32 +1,40 @@
-#!/bin/env python
+#!/usr/bin/env python3
 # Jeff Vierstra 2018
 # TODO:
 # --add filters/etc. as option
-
-import pysam
 import sys
 import logging
-import re
 
 from argparse import ArgumentParser
 
+import numpy as np
+import pysam
+
 class snv:
+	"""chrom, start, end, id, ref, alt, gt, extra fields
+		GT encoded as either 0/1 or with pipe 0|0
+	"""
 	def __init__(self, line):
 		fields = line.strip().split()
 		self.contig = fields[0]
 		self.start = int(fields[1])
 		self.end = int(fields[2])
 		self.id = fields[3]
-		self.dbsnp = fields[4]
-		self.ref = fields[5]
-		self.alt = fields[6]
-
-		self.line = line
+		self.ref = fields[4]
+		self.alt = fields[5]
+		self.gt = sum(map(int, fields[6].replace('|','/').split('/')))
+		#self.line = line
 
 	def __str__(self):
-		return self.line
 
-import numpy as np
+		if self.gt == 0:
+			gt_str = '0/0'
+		elif self.gt == 1:
+			gt_str = '0/1'
+		else:
+			gt_str = '1/1'
+
+		return f'{self.contig}\t{self.start}\t{self.end}\t{self.id}\t{self.ref}\t{self.alt}\t{gt_str}'
 
 logging.basicConfig(stream = sys.stderr, level = 30)
 
@@ -173,11 +181,14 @@ def main(argv = sys.argv[1:]):
 		#print rec.contig, rec.start, rec.ref, rec.ref
 
 		variant = snv(line)
-
 		ref = variant.ref
 		alt = variant.alt
 
-		n_total = n_ref = n_alt = n_failed = n_failed_bias = n_failed_mapping = n_failed_genotyping = 0
+		# must be heterozygous
+		if variant.gt != 1:
+			continue
+
+		n_ref = n_alt = n_failed = n_failed_bias = n_failed_mapping = n_failed_genotyping = 0
 
 		try:
 			
