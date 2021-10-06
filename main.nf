@@ -3,12 +3,6 @@
 params.samples_file='/tmp/metadata.txt'
 params.genotype_file='/net/seq/data/projects/regulotyping-h.CD3+/genotyping/output/calls/all.filtered.snps.annotated.vcf.gz'
 params.genome='/net/seq/data/genomes/human/GRCh38/noalts/GRCh38_no_alts'
-
-//heterzygous filtering parameters
-params.min_GQ=50 // Minimum genotype quality
-params.min_DP=12 // Minimum read depth over SNP
-params.min_AD=4 // Minimum reads per alleles
-
 params.outdir='output'
 
 //DO NOT EDIT BELOW
@@ -20,57 +14,8 @@ genome_chrom_sizes_file="$params.genome"  + ".chrom_sizes"
 Channel
 	.fromPath(params.samples_file)
 	.splitCsv(header:true, sep:'\t')
-	.map{ row -> tuple( row.indiv_id, row.ag_number, row.bam_file ) }
+	.map{ row -> tuple( row.indiv_id, row.ag_number, row.bam_file, row.filtered_sites_file ) }
 	.tap{ SAMPLES_AGGREGATIONS }
-	.map{ it[0] }
-	.unique()
-	.tap{ INDIVS }
-
-// Make a heterozyguous sites file for each donor
-// There some filtering at this step to make sure the genotype
-// are reliable and informative
-
-process het_sites {
-	tag "${indiv_id}"
-
-	publishDir params.outdir + "/het_sites", mode: 'symlink'
-
-	input:
-	val(indiv_id) from INDIVS
-	file genotype_file from file(params.genotype_file)
-	file '*' from file("${params.genotype_file}.csi")
-
-	val min_DP from params.min_DP
-	val min_AD from params.min_AD
-	val min_GQ from params.min_GQ
-
-	output:
-	set val(indiv_id), file("${indiv_id}.bed.gz"), file("${indiv_id}.bed.gz.tbi") into HET_SITES
-
-	script:
-	"""
-	bcftools view \
-		-s ${indiv_id} ${genotype_file} \
-	| bcftools query \
-		-i'GT="het"' \
-		-f"%CHROM\\t%POS0\\t%POS\\t%ID\\t%REF\\t%ALT\\t[%GQ\\t%AD{0}\\t%AD{1}\\t%DP]\\n" \
-	| awk -v OFS="\\t" \
-		-v min_GQ=${min_GQ} \
-		-v min_AD=${min_AD} \
-		-v min_DP=${min_DP} \
-		'\$7>=min_GQ && \$8>=min_AD && \$9>=min_AD && \$10>=min_DP { \
-			rsid=\$4; \
-			\$4=\$1":"\$2":"\$5"/"\$6"\\t"rsid; \
-			print; \
-		}' \
-	| sort-bed - \
-	| bgzip -c \
-	> ${indiv_id}.bed.gz
-
-	tabix -p bed ${indiv_id}.bed.gz
-	"""
-}
-
 
 process generate_h5_tables {
 
@@ -114,7 +59,7 @@ process remap_bamfiles {
 	module 'python/3.6.4'
 
 	input:
-	set val(indiv_id), val(ag_number), val(bam_file) from SAMPLES_AGGREGATIONS
+	set val(indiv_id), val(ag_number), val(bam_file), val(filtered_sites_file) from SAMPLES_AGGREGATIONS
 
 	file genome from file(params.genome) // doesn't actually make a file
 	file '*' from file("${params.genome}.amb")
@@ -128,7 +73,7 @@ process remap_bamfiles {
 	file '*' from GENOTYPES_HDF.collect()
 	
 	output:
-	set val(indiv_id), val(ag_number), file("${ag_number}.bam"), file("${ag_number}.bam.bai"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
+	set val(indiv_id), val(ag_number), val(filtered_sites_file), file("${ag_number}.bam"), file("${ag_number}.bam.bai"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
 
 	script:
 	"""
@@ -218,10 +163,6 @@ process remap_bamfiles {
 	"""
 }
 
-REMAPPED_READS
-	.combine(HET_SITES, by: 0)
-	.set{ REMAPPED_READS_INDIV }
-
 process count_reads {
 	tag "${indiv_id}:${ag_number}"
 
@@ -230,7 +171,7 @@ process count_reads {
 	module 'python/3.6.4'
 
 	input:
-	set val(indiv_id), val(ag_number), file(bam_all_file), file(bam_all_index_file), file(bam_passing_file), file(bam_passing_index_file), file(het_sites_file), file(het_sites_index_file) from REMAPPED_READS_INDIV
+	set val(indiv_id), val(ag_number), val(filtered_sites_file), file(bam_all_file), file(bam_all_index_file), file(bam_passing_file), file(bam_passing_index_file) from REMAPPED_READS
 
 	output:
 	set val(indiv_id), val(ag_number), file("${ag_number}.bed.gz"), file("${ag_number}.bed.gz.tbi") into COUNT_READS_LIST, COUNT_READS_FILES
@@ -238,13 +179,14 @@ process count_reads {
 	script:
 	"""
 	count_tags_pileup.py \
-		${het_sites_file} ${bam_all_file} ${bam_passing_file} \
+		${filtered_sites_file} ${bam_all_file} ${bam_passing_file} \
 	| sort-bed - | bgzip -c > ${ag_number}.bed.gz
 
 	tabix -p bed ${ag_number}.bed.gz
 	"""
 }
 
+// ag num, indiv, read file
 COUNT_READS_LIST
 	.map{ [it[1], it[0], it[2].name].join("\t") }
 	.collectFile(
@@ -284,4 +226,4 @@ process recode_vcf {
 	bcftools index allele_counts.vcf.gz
 
 	"""
-c}
+}
