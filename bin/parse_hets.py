@@ -13,6 +13,7 @@ for line in sys.stdin:
     af = 'nan'
     if fields[7] != '.':
         af = sorted(map(float, filter(lambda x: x!='.', fields[7].split(','))), reverse=True)[1]
+        #af = float(fields[7].split(',')[0])
         af = '{:0.5f}'.format(af)
     fields[7] = af
 
