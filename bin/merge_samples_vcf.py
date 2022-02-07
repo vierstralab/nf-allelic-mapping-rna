@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from os import read
 import sys
 import logging
 from argparse import ArgumentParser
@@ -8,15 +7,16 @@ from argparse import ArgumentParser
 from collections import namedtuple
 
 import pysam
-from scipy.stats import binom_test
 import numpy as np
+
+import pandas as pd
 
 def parse_options(args):
 
     parser = ArgumentParser(description = "Combined allelic read depths per sample into a larger VCF file")
 
     parser.add_argument("variant_file", metavar = "variant_file", type = str,
-                        help = "Path to VCF-format genotyping file.")
+                        help = "Path to VCF-format read depth file.")
 
     parser.add_argument("sample_map_file", metavar = "sample_map_file", type = str,
                         help = "Sample to individual mapping file")
@@ -107,16 +107,23 @@ def main(argv = sys.argv[1:]):
 
     args = parse_options(argv)
 
-    samples=[]
-    samples_group_id={}
+    # samples=[]
+    # samples_group_id={}
 
-    with open(args.sample_map_file) as f:
-        for line in f:
-            (sample, genotype_sample_id, cell_type)=line.strip().split("\t")
+    # with open(args.sample_map_file) as f:
+    #     for line in f:
+    #         (genotype_sample_id, sample_id, sample_cell_type) = line.strip().split("\t")
 
-            samples.append(sample)
-            #samples_group_id[sample]=f'{genotype_sample_id}_{cell_type}'
-            samples_group_id[sample]=f'{genotype_sample_id}'
+    #         samples.append(sample_id)
+    #         samples_group_id[sample_id] = f'{genotype_sample_id}'
+    #         #samples_group_id[sample_id] = f'{genotype_sample_id}_{cell_type}'
+
+    samples = pd.read_table(args.sample_map_file, header=0, dtype={'ag_number': str})
+    samples.set_index('ag_number', inplace=True)
+
+    samples['group_id'] = samples['indiv_id'] + '_' + samples['cell_type']
+
+    samples_group_id = samples['group_id'].to_dict()
 
     group_ids = list(set(samples_group_id.values()))
 
@@ -129,7 +136,7 @@ def main(argv = sys.argv[1:]):
     for var in infile.fetch(contig=args.chrom):
         vd_grouped = {}
   
-        for sample in samples:
+        for sample in samples.index:
 
             group_id = samples_group_id[sample]
             if group_id in vd_grouped:

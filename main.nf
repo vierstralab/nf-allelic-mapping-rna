@@ -49,7 +49,7 @@ process generate_h5_tables {
 }
 
 process remap_bamfiles {
-	tag "${indiv_id}:AG${ag_number}"
+	tag "${indiv_id}:${ag_number}"
 
 	scratch true
 
@@ -77,83 +77,182 @@ process remap_bamfiles {
 
 	script:
 	"""
-	## step 1 -- remove duplicates
-	##
 
-	python3 /home/jvierstra/.local/src/WASP/mapping/rmdup_pe.py \
-		${bam_file} reads.rmdup.bam
+	## split SE from PE reads
+	##
+	samtools view -O bam -h -F 1 ${bam_file} > se.bam
+	samtools index se.bam
+	n_se=\$(samtools view -c se.bam)
+
+	samtools view -O bam -h -f 1 ${bam_file} > pe.bam
+	samtools index pe.bam
+	n_pe=\$(samtools view -c pe.bam)
+
+	merge_files=""
+	remapped_merge_files=""
+
+	## single-ended
+	if [[ \${n_se} -gt 0 ]]; then
+		
+		# an ugly hack to deal with repeated read names on legacy SOLEXA GA1 data
+		hash_se_reads.py se.bam se.hashed.bam
+
+		## step 1 -- remove duplicates
+		##
+		python3 /home/jvierstra/.local/src/WASP/mapping/rmdup.py \
+			se.hashed.bam  se.reads.rmdup.bam
+
+		samtools sort \
+			-m ${task.memory.toMega()}M \
+			-@${task.cpus} \
+			-o se.reads.rmdup.sorted.bam \
+			-O bam \
+			se.reads.rmdup.bam
+
+		## step 2 -- get reads overlapping a SNV
+		##
+		python3 /home/jvierstra/.local/src/WASP/mapping/find_intersecting_snps.py \
+			--is_sorted \
+			--output_dir \${PWD} \
+			--snp_tab snp_tab.h5 \
+			--snp_index snp_index.h5  \
+			--haplotype haplotypes.h5 \
+			--samples ${indiv_id} \
+			se.reads.rmdup.sorted.bam
+
+		## step 3 -- re-align reads
+		##
+
+		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${genome} \
+			se.reads.rmdup.sorted.remap.fq.gz \
+		> se.reads.rmdup.sorted.remap.fq.sai
+
+		bwa samse -n 10 \
+			${genome} \
+			se.reads.rmdup.sorted.remap.fq.sai \
+			se.reads.rmdup.sorted.remap.fq.gz  \
+		| samtools view -b -t ${genome}.fai - \
+		> se.reads.remapped.bam
+
+		## step 4 -- mark QC flag
+		##
+
+		python3 /home/solexa/stampipes/scripts/bwa/filter_reads.py \
+			se.reads.remapped.bam \
+			se.reads.remapped.marked.bam \
+			${nuclear_chroms}
+
+		## step 5 -- filter reads
+
+		samtools sort \
+			-m ${task.memory.toMega()}M \
+			-@${task.cpus} -l0 se.reads.remapped.marked.bam \
+		| samtools view -b -F 512 - \
+		> se.reads.remapped.marked.filtered.bam
+
+		python3 /home/jvierstra/.local/src/WASP/mapping/filter_remapped_reads.py \
+			se.reads.rmdup.sorted.to.remap.bam \
+			se.reads.remapped.marked.filtered.bam \
+			se.reads.remapped.keep.bam
+
+		merge_files="\${merge_files} se.reads.rmdup.sorted.bam"
+		remapped_merge_files="\${remapped_merge_files} se.reads.remapped.keep.bam se.reads.rmdup.sorted.keep.bam"
+	fi
+
+	## paired-end
+	if [[ \${n_pe} -gt 0 ]]; then
+		
+		## step 1 -- remove duplicates
+		##
+		python3 /home/jvierstra/.local/src/WASP/mapping/rmdup_pe.py \
+			pe.bam pe.reads.rmdup.bam
+
+		samtools sort \
+			-m ${task.memory.toMega()}M \
+			-@${task.cpus} \
+			-o pe.reads.rmdup.sorted.bam \
+			-O bam \
+			pe.reads.rmdup.bam
+
+		## step 2 -- get reads overlapping a SNV
+		##
+		python3 /home/jvierstra/.local/src/WASP/mapping/find_intersecting_snps.py \
+			--is_paired_end \
+			--is_sorted \
+			--output_dir \${PWD} \
+			--snp_tab snp_tab.h5 \
+			--snp_index snp_index.h5  \
+			--haplotype haplotypes.h5 \
+			--samples ${indiv_id} \
+			pe.reads.rmdup.sorted.bam
+
+		## step 3 -- re-align reads
+		##
+
+		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${genome} \
+			pe.reads.rmdup.sorted.remap.fq1.gz \
+		> pe.reads.rmdup.sorted.remap.fq1.sai
+
+		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${genome} \
+			pe.reads.rmdup.sorted.remap.fq2.gz \
+		> pe.reads.rmdup.sorted.remap.fq2.sai
+
+		bwa sampe -n 10 -a 750 \
+			${genome} \
+			pe.reads.rmdup.sorted.remap.fq1.sai pe.reads.rmdup.sorted.remap.fq2.sai \
+			pe.reads.rmdup.sorted.remap.fq1.gz pe.reads.rmdup.sorted.remap.fq2.gz \
+		| samtools view -b -t ${genome}.fai - \
+		> pe.reads.remapped.bam
+
+		## step 4 -- mark QC flag
+		##
+
+		python3 /home/solexa/stampipes/scripts/bwa/filter_reads.py \
+			pe.reads.remapped.bam \
+			pe.reads.remapped.marked.bam \
+			${nuclear_chroms}
+
+		## step 5 -- filter reads
+
+		samtools sort \
+			-m ${task.memory.toMega()}M \
+			-@${task.cpus} -l0 pe.reads.remapped.marked.bam \
+		| samtools view -b -F 512 - \
+		> pe.reads.remapped.marked.filtered.bam
+
+		python3 /home/jvierstra/.local/src/WASP/mapping/filter_remapped_reads.py \
+			pe.reads.rmdup.sorted.to.remap.bam \
+			pe.reads.remapped.marked.filtered.bam \
+			pe.reads.remapped.keep.bam
+
+		merge_files="\${merge_files} pe.reads.rmdup.sorted.bam"
+		remapped_merge_files="\${remapped_merge_files} pe.reads.remapped.keep.bam pe.reads.rmdup.sorted.keep.bam"
+	fi
+
+
+
+	## step 6 -- merge back reads
+	samtools merge -f \
+		reads.rmdup.bam \
+		\${merge_files}
 
 	samtools sort \
 		-m ${task.memory.toMega()}M \
 		-@${task.cpus} \
-		-o reads.rmdup.sorted.bam \
-		-O bam \
+		-o reads.rmdup.sorted.bam  \
 		reads.rmdup.bam
 
-	## step 2 -- get reads overlapping a SNV
-	##
-
-	python3 /home/jvierstra/.local/src/WASP/mapping/find_intersecting_snps.py \
-		--is_paired_end \
-		--is_sorted \
-		--output_dir \${PWD} \
-		--snp_tab snp_tab.h5 \
-		--snp_index snp_index.h5  \
-		--haplotype haplotypes.h5 \
-		--samples ${indiv_id} \
-		reads.rmdup.sorted.bam
-
-	## step 3 -- re-align reads
-	##
-
-	bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${genome} \
-		reads.rmdup.sorted.remap.fq1.gz \
-	> reads.rmdup.sorted.remap.fq1.sai
-
-	bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${genome} \
-		reads.rmdup.sorted.remap.fq2.gz \
-	> reads.rmdup.sorted.remap.fq2.sai
-
-	bwa sampe -n 10 -a 750 \
-		${genome} \
-		reads.rmdup.sorted.remap.fq1.sai reads.rmdup.sorted.remap.fq2.sai \
-		reads.rmdup.sorted.remap.fq1.gz reads.rmdup.sorted.remap.fq2.gz \
-	| samtools view -b -t ${genome}.fai - \
-	> reads.remapped.bam
-
-	## step 4 -- mark QC flag
-	##
-
-	python3 /home/solexa/stampipes/scripts/bwa/filter_reads.py \
-		reads.remapped.bam \
-		reads.remapped.marked.bam \
-		${nuclear_chroms}
-
-	## step 5 -- filter reads
-
-	samtools sort \
-		-m ${task.memory.toMega()}M \
-		-@${task.cpus} -l0 reads.remapped.marked.bam \
-	| samtools view -b -F 512 - \
-	> reads.remapped.marked.filtered.bam
-
-	python3 /home/jvierstra/.local/src/WASP/mapping/filter_remapped_reads.py \
-		reads.rmdup.sorted.to.remap.bam \
-		reads.remapped.marked.filtered.bam \
-		reads.remapped.keep.bam
-
-	## step 6 -- merge back reads
 	samtools merge -f \
 		reads.passing.bam \
-		reads.remapped.keep.bam \
-		reads.rmdup.sorted.keep.bam
+		\${remapped_merge_files}
 
 	samtools sort \
 		-m ${task.memory.toMega()}M \
 		-@${task.cpus} \
 		-o reads.passing.sorted.bam  \
-		reads.passing.bam
+		reads.passing.bam 
 
+	# todo: merge dedupped se and pe reads
 	mv reads.rmdup.sorted.bam ${ag_number}.bam
 	samtools index ${ag_number}.bam
 
