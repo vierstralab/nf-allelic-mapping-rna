@@ -1,11 +1,5 @@
 #!/usr/bin/env nextflow
-
-params.samples_file='/tmp/metadata.txt'
-params.genotype_file='/net/seq/data/projects/regulotyping-h.CD3+/genotyping/output/calls/all.filtered.snps.annotated.vcf.gz'
-params.genome='/net/seq/data/genomes/human/GRCh38/noalts/GRCh38_no_alts'
-params.outdir='output'
-
-//DO NOT EDIT BELOW
+nextflow.enable.dsl = 1
 
 nuclear_chroms = "$params.genome" + ".nuclear.txt"
 genome_chrom_sizes_file="$params.genome"  + ".chrom_sizes"
@@ -39,7 +33,7 @@ process generate_h5_tables {
 
 	gzip -c ${chrom_sizes} > chrom_sizes.txt.gz
 
-	snp2h5 --chrom chrom_sizes.txt.gz \
+	${wasp_path}/snp2h5/snp2h5 --chrom chrom_sizes.txt.gz \
 		--format vcf \
 		--haplotype haplotypes.h5 \
 		--snp_index snp_index.h5 \
@@ -56,7 +50,6 @@ process remap_bamfiles {
 	publishDir params.outdir + "/remapped", mode: 'symlink'
 
 	cpus 2
-	module 'python/3.6.4'
 
 	input:
 	set val(indiv_id), val(ag_number), val(bam_file), val(filtered_sites_file) from SAMPLES_AGGREGATIONS
@@ -73,7 +66,7 @@ process remap_bamfiles {
 	file '*' from GENOTYPES_HDF.collect()
 	
 	output:
-	set val(indiv_id), val(ag_number), val(filtered_sites_file), file("${ag_number}.bam"), file("${ag_number}.bam.bai"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
+	set val(indiv_id), val(ag_number), val(filtered_sites_file), file("${ag_number}.initial_reads.bed.gz"), file("${ag_number}.initial_reads.bed.gz.tbi"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
 
 	script:
 	"""
@@ -95,11 +88,11 @@ process remap_bamfiles {
 	if [[ \${n_se} -gt 0 ]]; then
 		
 		# an ugly hack to deal with repeated read names on legacy SOLEXA GA1 data
-		hash_se_reads.py se.bam se.hashed.bam
+		$baseDir/bin/hash_se_reads.py se.bam se.hashed.bam
 
 		## step 1 -- remove duplicates
 		##
-		python3 /home/jvierstra/.local/src/WASP/mapping/rmdup.py \
+		python3 ${wasp_path}/mapping/rmdup.py \
 			se.hashed.bam  se.reads.rmdup.bam
 
 		samtools sort \
@@ -110,8 +103,11 @@ process remap_bamfiles {
 			se.reads.rmdup.bam
 
 		## step 2 -- get reads overlapping a SNV
-		##
-		python3 /home/jvierstra/.local/src/WASP/mapping/find_intersecting_snps.py \
+		### Creates 3 following files:
+		### se.reads.rmdup.sorted.to.remap.bam (reads to remap)
+		### se.reads.rmdup.sorted.keep.bam (reads to keep)
+		### se.reads.rmdup.sorted.remap.fq.gz (fastq file containing the reads with flipped alleles to remap)
+		python3 ${wasp_path}/mapping/find_intersecting_snps.py \
 			--is_sorted \
 			--output_dir \${PWD} \
 			--snp_tab snp_tab.h5 \
@@ -135,9 +131,9 @@ process remap_bamfiles {
 		> se.reads.remapped.bam
 
 		## step 4 -- mark QC flag
-		##
+		## Creates filtered bam file se.reads.remapped.marked.bam 
 
-		python3 /home/solexa/stampipes/scripts/bwa/filter_reads.py \
+		python3 $baseDir/bin/filter_reads.py \
 			se.reads.remapped.bam \
 			se.reads.remapped.marked.bam \
 			${nuclear_chroms}
@@ -150,13 +146,13 @@ process remap_bamfiles {
 		| samtools view -b -F 512 - \
 		> se.reads.remapped.marked.filtered.bam
 
-		python3 /home/jvierstra/.local/src/WASP/mapping/filter_remapped_reads.py \
+		python3 ${wasp_path}/mapping/filter_remapped_reads.py \
 			se.reads.rmdup.sorted.to.remap.bam \
 			se.reads.remapped.marked.filtered.bam \
-			se.reads.remapped.keep.bam
+			se.reads.remapped.result.bam
 
 		merge_files="\${merge_files} se.reads.rmdup.sorted.bam"
-		remapped_merge_files="\${remapped_merge_files} se.reads.remapped.keep.bam se.reads.rmdup.sorted.keep.bam"
+		remapped_merge_files="\${remapped_merge_files} se.reads.remapped.result.bam se.reads.rmdup.sorted.keep.bam"
 	fi
 
 	## paired-end
@@ -164,7 +160,7 @@ process remap_bamfiles {
 		
 		## step 1 -- remove duplicates
 		##
-		python3 /home/jvierstra/.local/src/WASP/mapping/rmdup_pe.py \
+		python3 ${wasp_path}/mapping/rmdup_pe.py \
 			pe.bam pe.reads.rmdup.bam
 
 		samtools sort \
@@ -176,7 +172,7 @@ process remap_bamfiles {
 
 		## step 2 -- get reads overlapping a SNV
 		##
-		python3 /home/jvierstra/.local/src/WASP/mapping/find_intersecting_snps.py \
+		python3 ${wasp_path}/mapping/find_intersecting_snps.py \
 			--is_paired_end \
 			--is_sorted \
 			--output_dir \${PWD} \
@@ -207,7 +203,7 @@ process remap_bamfiles {
 		## step 4 -- mark QC flag
 		##
 
-		python3 /home/solexa/stampipes/scripts/bwa/filter_reads.py \
+		python3 $baseDir/bin/filter_reads.py \
 			pe.reads.remapped.bam \
 			pe.reads.remapped.marked.bam \
 			${nuclear_chroms}
@@ -220,13 +216,13 @@ process remap_bamfiles {
 		| samtools view -b -F 512 - \
 		> pe.reads.remapped.marked.filtered.bam
 
-		python3 /home/jvierstra/.local/src/WASP/mapping/filter_remapped_reads.py \
+		python3 ${wasp_path}/mapping/filter_remapped_reads.py \
 			pe.reads.rmdup.sorted.to.remap.bam \
 			pe.reads.remapped.marked.filtered.bam \
-			pe.reads.remapped.keep.bam
+			pe.reads.remapped.result.bam
 
 		merge_files="\${merge_files} pe.reads.rmdup.sorted.bam"
-		remapped_merge_files="\${remapped_merge_files} pe.reads.remapped.keep.bam pe.reads.rmdup.sorted.keep.bam"
+		remapped_merge_files="\${remapped_merge_files} pe.reads.remapped.result.bam"
 	fi
 
 
@@ -252,13 +248,16 @@ process remap_bamfiles {
 		-o reads.passing.sorted.bam  \
 		reads.passing.bam 
 
+	# 
+	python3 $baseDir/bin/pileup_file.py \
+		reads.rmdup.sorted.bam ${filtered_sites_file} | sort-bed - | bgzip -c > ${ag_number}.initial_reads.bed.gz
+	
+	tabix -p bed ${ag_number}.initial_reads.bed.gz
 	# todo: merge dedupped se and pe reads
-	mv reads.rmdup.sorted.bam ${ag_number}.bam
-	samtools index ${ag_number}.bam
+	
 
 	mv reads.passing.sorted.bam ${ag_number}.passing.bam
 	samtools index ${ag_number}.passing.bam
-
 	"""
 }
 
@@ -267,62 +266,38 @@ process count_reads {
 
 	publishDir params.outdir + "/count_reads", mode: 'symlink'
 
-	module 'python/3.6.4'
-
 	input:
-	set val(indiv_id), val(ag_number), val(filtered_sites_file), file(bam_all_file), file(bam_all_index_file), file(bam_passing_file), file(bam_passing_index_file) from REMAPPED_READS
+	set val(indiv_id), val(ag_number), val(filtered_sites_file), file(bed_all_file), file(bed_all_file_index), file(bam_passing_file), file(bam_passing_index_file) from REMAPPED_READS
 
 	output:
-	set val(indiv_id), val(ag_number), file("${ag_number}.bed.gz"), file("${ag_number}.bed.gz.tbi") into COUNT_READS_LIST, COUNT_READS_FILES
+	set val(indiv_id), file(name) into COUNT_READS_FILES
 
 	script:
+	name = "${ag_number}.bed.gz"
 	"""
-	count_tags_pileup.py \
-		${filtered_sites_file} ${bam_all_file} ${bam_passing_file} \
-	| sort-bed - | bgzip -c > ${ag_number}.bed.gz
-
-	tabix -p bed ${ag_number}.bed.gz
+	$baseDir/bin/count_tags_pileup.py \
+		${filtered_sites_file} ${bed_all_file} ${bam_passing_file} > ${name}
 	"""
 }
 
-// ag num, indiv, read file
-COUNT_READS_LIST
-	.map{ [it[1], it[0], it[2].name].join("\t") }
-	.collectFile(
-		name: 'sample_map.tsv', 
-		newLine: true
-	)
-	.first()
-	.set{RECODE_VCF_SAMPLE_MAP_FILE}
+ COUNT_READS_FILES.groupTuple().set(INDIV_MERGED_COUNT_FILES)
 
-COUNT_READS_FILES
-	.flatMap{ [file(it[2]), file(it[3])] }
-	.set{ COUNT_READS_ALL_FILES }
-
-process recode_vcf {
-	publishDir params.outdir + "/vcf", mode: 'symlink'
-
-	module 'python/3.6.4'
+process merge_by_indiv {
+	publishDir params.outdir + "/indiv_merged_files", mode: 'symlink'
 
 	input:
-	file 'sample_map.tsv' from RECODE_VCF_SAMPLE_MAP_FILE
-	file '*' from COUNT_READS_ALL_FILES.collect()
-
-	file vcf_file from file("${params.genotype_file}")
-	file '*' from file("${params.genotype_file}.csi")
+	tuple val(indiv_id), path(bed_files) from INDIV_MERGED_COUNT_FILES
 
 	output:
-	file 'allele_counts.vcf.gz*'
+	tuple val(indiv_id), file(name)
 
 	script:
+	name = "${indiv_id}.snps.bed"
 	"""
-	recode_vcf.py \
-		${vcf_file} \
-		sample_map.tsv \
-		allele_counts.vcf
-
-	bgzip -c allele_counts.vcf > allele_counts.vcf.gz
-	bcftools index allele_counts.vcf.gz
-
+	for file in ${bed_files}; do
+		python3 $baseDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
+	done
+	sort -k 1,1 -k2,2n ${indiv_id}.snps > ${name}
+	rm ${indiv_id}.snps
 	"""
 }
