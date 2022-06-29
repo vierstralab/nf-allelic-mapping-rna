@@ -14,12 +14,13 @@ class SNV:
         GT encoded as either 0/1 or with pipe 0|0
     """
     
-    __class_fields = ['contig', 'start', 'end', 'id', 'ref', 'alt', 'gt']
+    __class_fields = ['contig', 'start', 'end', 'id', 'ref', 'alt', 'maf', 'gt']
     def __init__(self, fields):
         for field_name, field_value in zip(self.__class_fields, fields):
             setattr(self, field_name, field_value)
         self.start = int(self.start)
         self.end = int(self.end)
+        self.maf = float(self.maf)
         self.is_het = sum(map(int, self.gt.replace('|','/').split('/'))) == 1
        
     def to_list(self):
@@ -64,7 +65,7 @@ def reads_to_dict(vars_file_path, bam_file_path, chrom):
     with pysam.TabixFile(vars_file_path) as vars_file, pysam.AlignmentFile(bam_file_path, "rb") as sam_file: 
         for line in vars_file.fetch(reference=chrom):
             variant = SNV.from_str(line)
-            if not variant.is_het:
+            if not variant.is_het or variant.maf < 0.05:
                 continue
             reads_1, reads_2, read_pairs = get_reads(variant, sam_file)
             yield variant, reads_1, reads_2, read_pairs
