@@ -1,16 +1,11 @@
 """
 Counts coverage of SNVs in the bam file
 """
-
-import sys
-import logging
-
 from argparse import ArgumentParser
-
 import pysam
 
 class SNV:
-    """chrom, start, end, id, ref, alt, gt, extra fields
+    """chrom, start, end, id, ref, alt, maf, gt
         GT encoded as either 0/1 or with pipe 0|0
     """
     
@@ -29,9 +24,9 @@ class SNV:
     def __repr__(self):
         return '\t'.join(map(str, self.to_list()))
 
-    @staticmethod
-    def from_str(line):
-        return SNV(line.strip('\n').split('\t'))
+    @classmethod
+    def from_str(cls, line: str):
+        return cls(line.strip('\n').split('\t'))
     
     @classmethod
     def get_fields(cls):
@@ -43,7 +38,8 @@ def get_reads(variant, sam_file):
 	reads_2 = {}
 
 	# Go into BAM file and get the reads
-	for pileupcolumn  in sam_file.pileup(variant.contig, variant.start, variant.start+1, maxdepth=10000, truncate=True, stepper="nofilter"):
+	for pileupcolumn  in sam_file.pileup(variant.contig, variant.start, variant.end,
+     maxdepth=10000, truncate=True, stepper="nofilter"):
 
 		for pileupread in pileupcolumn.pileups:
 
@@ -78,4 +74,19 @@ def main(var_file_path, bam_file_path, chrom):
         
 
 if __name__ == '__main__':
-    main()
+    parser = ArgumentParser(description = "Count tags by allele")
+    
+    parser.add_argument("--chrom", dest = "chrom", type = str,
+						default = None, help = "Use a specific contig/chromosome")
+    parser.add_argument("var_file", metavar = "var_file", type = str,
+						help = "Path to variant file (must have corresponding index)")
+
+    parser.add_argument("original_reads_file", metavar = "original_reads_file", type = str, 
+						help = "Path to tab separated file with # of reads for each variant")
+
+    parser.add_argument("remapped_bam_file", metavar = "remapped_bam_file", type = str, 
+						help = "Path to BAM-format tag sequence file")
+
+    args = parser.parse_args()
+
+    main(args)
