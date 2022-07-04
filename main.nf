@@ -202,7 +202,6 @@ process remap_bamfiles {
 		| samtools view -b -t ${genome}.fai - \
 		> pe.reads.remapped.bam
 
-		samtools index pe.reads.remapped.bam
 		## step 4 -- mark QC flag
 		##
 
@@ -244,7 +243,7 @@ process remap_bamfiles {
 		reads.rmdup.bam
 
 	echo ${filtered_sites_file}
-	
+
 	python3 $baseDir/bin/pileup_file.py \
 		 ${filtered_sites_file} reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${ag_number}.initial_reads.bed.gz
 	
