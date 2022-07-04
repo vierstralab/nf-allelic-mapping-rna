@@ -35,7 +35,7 @@ process generate_h5_tables {
 
 	gzip -c ${chrom_sizes} > chrom_sizes.txt.gz
 
-	${wasp_path}/snp2h5/snp2h5 --chrom chrom_sizes.txt.gz \
+	${params.wasp_path}/snp2h5/snp2h5 --chrom chrom_sizes.txt.gz \
 		--format vcf \
 		--haplotype haplotypes.h5 \
 		--snp_index snp_index.h5 \
@@ -94,7 +94,7 @@ process remap_bamfiles {
 
 		## step 1 -- remove duplicates
 		##
-		python3 ${wasp_path}/mapping/rmdup.py \
+		python3 ${params.wasp_path}/mapping/rmdup.py \
 			se.hashed.bam  se.reads.rmdup.bam
 
 		samtools sort \
@@ -109,7 +109,7 @@ process remap_bamfiles {
 		### se.reads.rmdup.sorted.to.remap.bam (reads to remap)
 		### se.reads.rmdup.sorted.keep.bam (reads to keep)
 		### se.reads.rmdup.sorted.remap.fq.gz (fastq file containing the reads with flipped alleles to remap)
-		python3 ${wasp_path}/mapping/find_intersecting_snps.py \
+		python3 ${params.wasp_path}/mapping/find_intersecting_snps.py \
 			--is_sorted \
 			--output_dir \${PWD} \
 			--snp_tab snp_tab.h5 \
@@ -148,7 +148,7 @@ process remap_bamfiles {
 		| samtools view -b -F 512 - \
 		> se.reads.remapped.marked.filtered.bam
 
-		python3 ${wasp_path}/mapping/filter_remapped_reads.py \
+		python3 ${params.wasp_path}/mapping/filter_remapped_reads.py \
 			se.reads.rmdup.sorted.to.remap.bam \
 			se.reads.remapped.marked.filtered.bam \
 			se.reads.remapped.result.bam
@@ -162,7 +162,7 @@ process remap_bamfiles {
 		
 		## step 1 -- remove duplicates
 		##
-		python3 ${wasp_path}/mapping/rmdup_pe.py \
+		python3 ${params.wasp_path}/mapping/rmdup_pe.py \
 			pe.bam pe.reads.rmdup.bam
 
 		samtools sort \
@@ -174,7 +174,7 @@ process remap_bamfiles {
 
 		## step 2 -- get reads overlapping a SNV
 		##
-		python3 ${wasp_path}/mapping/find_intersecting_snps.py \
+		python3 ${params.wasp_path}/mapping/find_intersecting_snps.py \
 			--is_paired_end \
 			--is_sorted \
 			--output_dir \${PWD} \
@@ -218,7 +218,7 @@ process remap_bamfiles {
 		| samtools view -b -F 512 - \
 		> pe.reads.remapped.marked.filtered.bam
 
-		python3 ${wasp_path}/mapping/filter_remapped_reads.py \
+		python3 ${params.wasp_path}/mapping/filter_remapped_reads.py \
 			pe.reads.rmdup.sorted.to.remap.bam \
 			pe.reads.remapped.marked.filtered.bam \
 			pe.reads.remapped.result.bam
