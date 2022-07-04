@@ -1,14 +1,16 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl = 1
 
-nuclear_chroms = "$params.genome" + ".nuclear.txt"
-genome_chrom_sizes_file="$params.genome"  + ".chrom_sizes"
+nuclear_chroms = "${params.genome}.nuclear.txt"
+genome_chrom_sizes_file="${params.genome}.chrom_sizes"
+
+genotype_file = "${genotyping_output}/genotypes/all.filtered.snps.annotated.vcf.gz"
 
 
 Channel
 	.fromPath(params.samples_file)
 	.splitCsv(header:true, sep:'\t')
-	.map{ row -> tuple( row.indiv_id, row.ag_number, row.bam_file, row.filtered_sites_file ) }
+	.map{ row -> tuple( row.indiv_id, row.ag_number, row.bam_file, "${genotyping_output}/${row.filtered_sites_file}" ) }
 	.tap{ SAMPLES_AGGREGATIONS }
 
 process generate_h5_tables {
@@ -16,8 +18,8 @@ process generate_h5_tables {
 	scratch true
 
 	input:
-		file vcf_file from file(params.genotype_file)
-		file '*' from file("${params.genotype_file}.csi")
+		file vcf_file from file(genotype_file)
+		file '*' from file("${genotype_file}.csi")
 		file chrom_sizes from file(genome_chrom_sizes_file)
 
 	output:
@@ -52,7 +54,7 @@ process remap_bamfiles {
 	cpus 2
 
 	input:
-	set val(indiv_id), val(ag_number), val(bam_file), val(filtered_sites_file) from SAMPLES_AGGREGATIONS
+	set val(indiv_id), val(ag_number), val(bam_file), path(filtered_sites_file) from SAMPLES_AGGREGATIONS
 
 	file genome from file(params.genome) // doesn't actually make a file
 	file '*' from file("${params.genome}.amb")
@@ -66,7 +68,7 @@ process remap_bamfiles {
 	file '*' from GENOTYPES_HDF.collect()
 	
 	output:
-	set val(indiv_id), val(ag_number), val(filtered_sites_file), file("${ag_number}.initial_reads.bed.gz"), file("${ag_number}.initial_reads.bed.gz.tbi"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
+	set val(indiv_id), val(ag_number), path(filtered_sites_file), path("${ag_number}.initial_reads.bed.gz"), file("${ag_number}.initial_reads.bed.gz.tbi"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
 
 	script:
 	"""
