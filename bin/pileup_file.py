@@ -73,7 +73,7 @@ def reads_to_dict(vars_file_path, bam_file_path, chrom):
 def main(var_file_path, bam_file_path, chrom):
     result = []
     for variant, _, _, read_pairs in reads_to_dict(var_file_path, bam_file_path, chrom):
-        result.append([*str(variant), len(read_pairs)])
+        result.append([*variant.to_list(), len(read_pairs)])
     
     pd.DataFrame.from_records(result, columns=SNV.get_fields()).to_csv(sys.stdout, sep='\t', index=False)
         
