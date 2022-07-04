@@ -202,6 +202,7 @@ process remap_bamfiles {
 		| samtools view -b -t ${genome}.fai - \
 		> pe.reads.remapped.bam
 
+		samtools index pe.reads.remapped.bam
 		## step 4 -- mark QC flag
 		##
 
@@ -217,6 +218,8 @@ process remap_bamfiles {
 			-@${task.cpus} -l0 pe.reads.remapped.marked.bam \
 		| samtools view -b -F 512 - \
 		> pe.reads.remapped.marked.filtered.bam
+
+		samtools index pe.reads.remapped.marked.filtered.bam
 
 		python3 ${params.wasp_path}/mapping/filter_remapped_reads.py \
 			pe.reads.rmdup.sorted.to.remap.bam \
@@ -240,8 +243,15 @@ process remap_bamfiles {
 		-o reads.rmdup.sorted.bam  \
 		reads.rmdup.bam
 
-	samtools merge -f \
-		reads.passing.bam \
+	echo ${filtered_sites_file}
+	
+	python3 $baseDir/bin/pileup_file.py \
+		 ${filtered_sites_file} reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${ag_number}.initial_reads.bed.gz
+	
+	tabix -p bed ${ag_number}.initial_reads.bed.gz
+	# todo: merge dedupped se and pe reads
+
+	samtools merge -f reads.passing.bam \
 		\${remapped_merge_files}
 
 	samtools sort \
@@ -249,14 +259,6 @@ process remap_bamfiles {
 		-@${task.cpus} \
 		-o reads.passing.sorted.bam  \
 		reads.passing.bam 
-
-	# 
-	python3 $baseDir/bin/pileup_file.py \
-		 ${filtered_sites_file} reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${ag_number}.initial_reads.bed.gz
-	
-	tabix -p bed ${ag_number}.initial_reads.bed.gz
-	# todo: merge dedupped se and pe reads
-	
 
 	mv reads.passing.sorted.bam ${ag_number}.passing.bam
 	samtools index ${ag_number}.passing.bam
