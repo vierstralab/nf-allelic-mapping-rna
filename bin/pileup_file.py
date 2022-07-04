@@ -69,9 +69,11 @@ def reads_to_dict(vars_file_path, bam_file_path, chrom):
 
 
 def main(var_file_path, bam_file_path, chrom):
-    print('\t'.join(SNV.get_fields()))
+    result = []
+    result.append('\t'.join(SNV.get_fields()))
     for variant, _, _, read_pairs in reads_to_dict(var_file_path, bam_file_path, chrom):
-        print(str(variant), len(read_pairs), sep='\t')
+        result.append('\t'.join([*str(variant), len(read_pairs)]))
+    print('\n'.join(result))
         
 
 if __name__ == '__main__':
