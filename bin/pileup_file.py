@@ -75,7 +75,7 @@ def main(var_file_path, bam_file_path, chrom):
     for variant, _, _, read_pairs in reads_to_dict(var_file_path, bam_file_path, chrom):
         result.append([*str(variant), len(read_pairs)])
     
-    pd.DataFrame(result, columns=SNV.get_fields()).to_csv(sys.stdout, sep='\t', index=False)
+    pd.DataFrame.from_records(result, columns=SNV.get_fields()).to_csv(sys.stdout, sep='\t', index=False)
         
 
 if __name__ == '__main__':
