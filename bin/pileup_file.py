@@ -81,12 +81,9 @@ if __name__ == '__main__':
     parser.add_argument("var_file", metavar = "var_file", type = str,
 						help = "Path to variant file (must have corresponding index)")
 
-    parser.add_argument("original_reads_file", metavar = "original_reads_file", type = str, 
-						help = "Path to tab separated file with # of reads for each variant")
-
     parser.add_argument("remapped_bam_file", metavar = "remapped_bam_file", type = str, 
 						help = "Path to BAM-format tag sequence file")
 
     args = parser.parse_args()
 
-    main(args)
+    main(args.var_file, args.remapped_bam_file, args.chrom)
