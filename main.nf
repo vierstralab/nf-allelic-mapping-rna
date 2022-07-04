@@ -54,7 +54,7 @@ process remap_bamfiles {
 	cpus 2
 
 	input:
-	set val(indiv_id), val(ag_number), val(bam_file), path(filtered_sites_file) from SAMPLES_AGGREGATIONS
+	set val(indiv_id), val(ag_number), val(bam_file), val(filtered_sites_file) from SAMPLES_AGGREGATIONS
 
 	file genome from file(params.genome) // doesn't actually make a file
 	file '*' from file("${params.genome}.amb")
@@ -72,7 +72,6 @@ process remap_bamfiles {
 
 	script:
 	"""
-
 	## split SE from PE reads
 	##
 	samtools view -O bam -h -F 1 ${bam_file} > se.bam
@@ -218,8 +217,6 @@ process remap_bamfiles {
 		| samtools view -b -F 512 - \
 		> pe.reads.remapped.marked.filtered.bam
 
-		samtools index pe.reads.remapped.marked.filtered.bam
-
 		python3 ${params.wasp_path}/mapping/filter_remapped_reads.py \
 			pe.reads.rmdup.sorted.to.remap.bam \
 			pe.reads.remapped.marked.filtered.bam \
@@ -241,8 +238,6 @@ process remap_bamfiles {
 		-@${task.cpus} \
 		-o reads.rmdup.sorted.bam  \
 		reads.rmdup.bam
-
-	echo ${filtered_sites_file}
 
 	python3 $baseDir/bin/pileup_file.py \
 		 ${filtered_sites_file} reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${ag_number}.initial_reads.bed.gz
