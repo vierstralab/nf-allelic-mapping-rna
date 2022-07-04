@@ -58,8 +58,9 @@ def get_reads(variant, sam_file):
 
 
 def reads_to_dict(vars_file_path, bam_file_path, chrom):
+    args = {} if chrom is None else {'reference': chrom} 
     with pysam.TabixFile(vars_file_path) as vars_file, pysam.AlignmentFile(bam_file_path, "rb") as sam_file: 
-        for line in vars_file.fetch(reference=chrom):
+        for line in vars_file.fetch(*args):
             variant = SNV.from_str(line)
             if not variant.is_het or variant.maf < 0.05:
                 continue
