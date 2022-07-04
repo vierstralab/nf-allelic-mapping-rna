@@ -10,7 +10,7 @@ genotype_file = "${params.genotyping_output}/genotypes/all.filtered.snps.annotat
 Channel
 	.fromPath(params.samples_file)
 	.splitCsv(header:true, sep:'\t')
-	.map{ row -> tuple( row.indiv_id, row.ag_number, row.bamfile, "${params.genotyping_output}/bed_files/${row.filtered_sites_file}" ) }
+	.map{ row -> tuple( row.indiv_id, row.ag_number, row.bamfile, "${params.genotyping_output}/bed_files/${row.filtered_sites_file}", "${params.genotyping_output}/bed_files/${row.filtered_sites_file}.tbi"  ) }
 	.tap{ SAMPLES_AGGREGATIONS }
 
 process generate_h5_tables {
@@ -54,7 +54,7 @@ process remap_bamfiles {
 	cpus 2
 
 	input:
-	set val(indiv_id), val(ag_number), val(bam_file), val(filtered_sites_file) from SAMPLES_AGGREGATIONS
+	set val(indiv_id), val(ag_number), val(bam_file), val(filtered_sites_file), val(filtered_sites_file_index) from SAMPLES_AGGREGATIONS
 
 	file genome from file(params.genome) // doesn't actually make a file
 	file '*' from file("${params.genome}.amb")
@@ -68,7 +68,7 @@ process remap_bamfiles {
 	file '*' from GENOTYPES_HDF.collect()
 	
 	output:
-	set val(indiv_id), val(ag_number), val(filtered_sites_file), path("${ag_number}.initial_reads.bed.gz"), file("${ag_number}.initial_reads.bed.gz.tbi"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
+	set val(indiv_id), val(ag_number), val(filtered_sites_file), val(filtered_sites_file_index), path("${ag_number}.initial_reads.bed.gz"), file("${ag_number}.initial_reads.bed.gz.tbi"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
 
 	script:
 	"""
@@ -238,6 +238,8 @@ process remap_bamfiles {
 		-@${task.cpus} \
 		-o reads.rmdup.sorted.bam  \
 		reads.rmdup.bam
+	
+	samtools index reads.rmdup.sorted.bam
 
 	python3 $baseDir/bin/pileup_file.py \
 		 ${filtered_sites_file} reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${ag_number}.initial_reads.bed.gz
@@ -265,7 +267,7 @@ process count_reads {
 	publishDir params.outdir + "/count_reads", mode: 'symlink'
 
 	input:
-	set val(indiv_id), val(ag_number), val(filtered_sites_file), file(bed_all_file), file(bed_all_file_index), file(bam_passing_file), file(bam_passing_index_file) from REMAPPED_READS
+	set val(indiv_id), val(ag_number), val(filtered_sites_file), val(filtered_sites_file_index), file(bed_all_reads_file), file(bed_all_reads_file_index), file(bam_passing_file), file(bam_passing_file_index) from REMAPPED_READS
 
 	output:
 	set val(indiv_id), file(name) into COUNT_READS_FILES
@@ -274,7 +276,7 @@ process count_reads {
 	name = "${ag_number}.bed.gz"
 	"""
 	$baseDir/bin/count_tags_pileup.py \
-		${filtered_sites_file} ${bed_all_file} ${bam_passing_file} > ${name}
+		${filtered_sites_file} ${bed_all_reads_file} ${bam_passing_file} > ${name}
 	"""
 }
 
