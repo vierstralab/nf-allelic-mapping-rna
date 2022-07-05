@@ -277,8 +277,7 @@ process count_reads {
 	name = "${ag_number}.bed.gz"
 	"""
 	$baseDir/bin/count_tags_pileup.py \
-		${filtered_sites_file} ${bed_all_reads_file} ${bam_passing_file} \
-		 | sort-bed - | bgzip -c > ${name}
+		${filtered_sites_file} ${bed_all_reads_file} ${bam_passing_file} | sort-bed - | bgzip -c > ${name}
 	
 	tabix -p bed ${name}
 	"""
