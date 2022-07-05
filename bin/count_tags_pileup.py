@@ -174,7 +174,7 @@ def main(argv = sys.argv[1:]):
 		n_ref, n_alt, n_failed_bias, n_failed_genotyping = check_reads(reads_1, reads_2,
 															read_pairs, variant.ref, variant.alt)
 		variant_str = str(variant)
-		n_original_reads = original_reads_dict.get(variant_str, 0)
+		n_original_reads = original_reads_dict.get(variant_str, 100)
 		
 		n_failed_mapping = n_original_reads - n_remapped_reads
 
