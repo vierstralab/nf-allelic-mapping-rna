@@ -281,7 +281,7 @@ process count_reads {
 	"""
 }
 
-  INDIV_MERGED_COUNT_FILES = COUNT_READS_FILES.groupTuple().map{ it -> tuple(it[0], it[1].join(" ")) }
+INDIV_MERGED_COUNT_FILES = COUNT_READS_FILES.groupTuple().map{ it -> tuple(it[0], it[1].join(" ")) }
 
 process merge_by_indiv {
 	publishDir params.outdir + "/indiv_merged_files", mode: 'symlink'
