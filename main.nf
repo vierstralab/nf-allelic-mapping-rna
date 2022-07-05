@@ -242,7 +242,8 @@ process remap_bamfiles {
 	samtools index reads.rmdup.sorted.bam
 
 	python3 $baseDir/bin/pileup_file.py \
-		 ${filtered_sites_file} reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${ag_number}.initial_reads.bed.gz
+		 ${filtered_sites_file} reads.rmdup.sorted.bam > initial_reads.bed
+	sort-bed initial_reads.bed | bgzip -c > ${ag_number}.initial_reads.bed.gz
 	
 	tabix -p bed ${ag_number}.initial_reads.bed.gz
 	# todo: merge dedupped se and pe reads
