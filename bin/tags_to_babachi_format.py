@@ -1,4 +1,4 @@
-import pandas as pd
+import pysam
 import sys
 import os
 
@@ -6,10 +6,17 @@ from pileup_file import SNV
 
 
 def main(in_file):
-    print(os.path.exists(in_file))
-    df = pd.read_table(in_file)
-    columns = SNV.get_fields()[:6] + ['ref_counts', 'alt_counts']
-    df[columns].to_csv(sys.stdout, sep='\t', header=None, index=False)
+    with pysam.TabixFile(in_file) as vars_file:
+        for line in vars_file.fetch():
+            split_line = line.strip('\n').split('\t')
+            variant = SNV(split_line[:-5])
+            n_ref, n_alt, n_original_reads, n_failed_mapping, n_failed_genotyping, n_failed_bias = split_line[-5:]
+            assert n_original_reads == n_alt + n_ref + n_failed_bias + n_failed_genotyping + n_failed_mapping
+            if min(n_ref, n_alt) < 5:
+                continue
+            if variant.maf < 0.05:
+                continue
+            print('\t'.join(map(str, [*split_line[:6], n_ref, n_alt])))
 
 
 if __name__ == '__main__':
