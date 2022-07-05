@@ -9,7 +9,7 @@ from argparse import ArgumentParser
 from pileup_file import SNV, reads_to_dict
 import pysam
 
-logging.basicConfig(stream = sys.stderr, level='warning')
+logging.basicConfig(stream = sys.stderr, level='WARNING')
 
 def parse_options(args):
 
