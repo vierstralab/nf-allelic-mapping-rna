@@ -156,7 +156,7 @@ def check_reads(reads_1, reads_2, unique_reads, ref, alt):
 def get_original_read_counts(original_file):
 	result = {}
 	with pysam.TabixFile(original_file) as f:
-		for line in f:
+		for line in f.fetch():
 			variant = line.strip('\n').split('\t')
 			original_reads = int(variant[-1])
 			result[str(SNV(variant[:-1]))] = original_reads
