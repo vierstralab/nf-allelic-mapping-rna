@@ -168,7 +168,7 @@ def main(argv = sys.argv[1:]):
 
 	original_reads_dict = get_original_read_counts(args.original_reads_file)
 	print('\t'.join([*SNV.get_fields(), 'ref_counts', 'alt_counts',
-	 'initial_reads', 'failed_mapping', 'filed_genotyping', 'failed_bias']))
+	 'initial_reads', 'failed_mapping', 'failed_genotyping', 'failed_bias']))
 	for variant, reads_1, reads_2, read_pairs in reads_to_dict(args.var_file, args.remapped_bam_file, args.chrom):
 		n_remapped_reads = len(read_pairs)
 		n_ref, n_alt, n_failed_bias, n_failed_genotyping = check_reads(reads_1, reads_2,
