@@ -243,6 +243,7 @@ process remap_bamfiles {
 
 	python3 $baseDir/bin/pileup_file.py \
 		 ${filtered_sites_file} reads.rmdup.sorted.bam > initial_reads.bed
+	head initial_reads.bed
 	sort-bed initial_reads.bed | bgzip -c > ${ag_number}.initial_reads.bed.gz
 	
 	tabix -p bed ${ag_number}.initial_reads.bed.gz
