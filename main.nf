@@ -283,13 +283,13 @@ process count_reads {
 	"""
 }
 
-INDIV_MERGED_COUNT_FILES = COUNT_READS_FILES.groupTuple().map{ it -> tuple(it[0], it[1].join(" "), it[2].join(" ")) }
+INDIV_MERGED_COUNT_FILES = COUNT_READS_FILES.groupTuple()
 
 process merge_by_indiv {
 	publishDir params.outdir + "/indiv_merged_files", mode: 'symlink'
 
 	input:
-	tuple val(indiv_id), path(bed_files), path(bed_file_index) from INDIV_MERGED_COUNT_FILES
+	tuple val(indiv_id), path(bed_files) from INDIV_MERGED_COUNT_FILES
 
 	output:
 	tuple val(indiv_id), file(name)
@@ -297,6 +297,7 @@ process merge_by_indiv {
 	script:
 	name = "${indiv_id}.snps.bed"
 	"""
+	echo ${bed_files}
 	for file in ${bed_files}; do
 		python3 $baseDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
 	done
