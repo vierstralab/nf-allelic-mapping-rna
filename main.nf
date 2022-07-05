@@ -271,17 +271,20 @@ process count_reads {
 	set val(indiv_id), val(ag_number), val(filtered_sites_file), val(filtered_sites_file_index), file(bed_all_reads_file), file(bed_all_reads_file_index), file(bam_passing_file), file(bam_passing_file_index) from REMAPPED_READS
 
 	output:
-	set val(indiv_id), file(name) into COUNT_READS_FILES
+	set val(indiv_id), file(name), file("${name}.tbi") into COUNT_READS_FILES
 
 	script:
 	name = "${ag_number}.bed.gz"
 	"""
 	$baseDir/bin/count_tags_pileup.py \
-		${filtered_sites_file} ${bed_all_reads_file} ${bam_passing_file} > ${name}
+		${filtered_sites_file} ${bed_all_reads_file} ${bam_passing_file} \
+		 | sort-bed - | bgzip -c > ${name}
+	
+	tabix -p bed ${name}
 	"""
 }
 
-INDIV_MERGED_COUNT_FILES = COUNT_READS_FILES.groupTuple().map{ it -> tuple(it[0], it[1].join(" ")) }
+INDIV_MERGED_COUNT_FILES = COUNT_READS_FILES.groupTuple().map{ it -> tuple(it[0], it[1].join(" "), it[2].join(" ")) }
 
 process merge_by_indiv {
 	publishDir params.outdir + "/indiv_merged_files", mode: 'symlink'
