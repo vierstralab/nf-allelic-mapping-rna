@@ -11,6 +11,7 @@ def main(in_file):
             split_line = line.strip('\n').split('\t')
             variant = SNV(split_line[:-6])
             n_ref, n_alt, n_original_reads, n_failed_mapping, n_failed_genotyping, n_failed_bias = split_line[-6:]
+            print(line, n_ref, n_alt)
             assert n_original_reads == n_alt + n_ref + n_failed_bias + n_failed_genotyping + n_failed_mapping
             if min(n_ref, n_alt) < 5:
                 continue
