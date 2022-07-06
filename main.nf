@@ -289,7 +289,7 @@ process merge_by_indiv {
 	publishDir params.outdir + "/indiv_merged_files", mode: 'symlink'
 
 	input:
-	tuple val(indiv_id), path(bed_files) from INDIV_MERGED_COUNT_FILES
+	tuple val(indiv_id), path(bed_files), path(bed_file_index) from INDIV_MERGED_COUNT_FILES
 
 	output:
 	tuple val(indiv_id), file(name)
