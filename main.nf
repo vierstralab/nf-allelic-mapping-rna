@@ -71,14 +71,15 @@ process remap_bamfiles {
 	set val(indiv_id), val(ag_number), val(filtered_sites_file), val(filtered_sites_file_index), path("${ag_number}.initial_reads.bed.gz"), file("${ag_number}.initial_reads.bed.gz.tbi"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
 
 	script:
+	genome = "${params.genome}.fa"
 	"""
 	## split SE from PE reads
 	##
-	samtools view -O bam -h -F 1 ${bam_file} > se.bam
+	samtools view -O bam -h -F 1 --reference ${genome} ${bam_file} > se.bam
 	samtools index se.bam
 	n_se=\$(samtools view -c se.bam)
 
-	samtools view -O bam -h -f 1 ${bam_file} > pe.bam
+	samtools view -O bam -h -f 1 --reference ${genome} ${bam_file} > pe.bam
 	samtools index pe.bam
 	n_pe=\$(samtools view -c pe.bam)
 
