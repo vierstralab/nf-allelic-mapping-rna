@@ -10,7 +10,7 @@ genotype_file = "${params.genotyping_output}/genotypes/all.filtered.snps.annotat
 Channel
 	.fromPath(params.samples_file)
 	.splitCsv(header:true, sep:'\t')
-	.map{ row -> tuple( row.indiv_id, row.ag_number, row.bamfile, "${params.genotyping_output}/bed_files/${row.filtered_sites_file}", "${params.genotyping_output}/bed_files/${row.filtered_sites_file}.tbi"  ) }
+	.map{ row -> tuple( row.indiv_id, row.ag_id, row.bam_file, "${params.genotyping_output}/bed_files/${row.filtered_sites_file}", "${params.genotyping_output}/bed_files/${row.filtered_sites_file}.tbi"  ) }
 	.tap{ SAMPLES_AGGREGATIONS }
 
 process generate_h5_tables {
