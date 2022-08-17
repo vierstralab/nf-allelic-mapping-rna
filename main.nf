@@ -1,39 +1,22 @@
 #!/usr/bin/env nextflow
-nextflow.enable.dsl = 1
-
-nuclear_chroms = "${params.genome}.nuclear.txt"
-genome_chrom_sizes_file="${params.genome}.chrom_sizes"
-
-genotype_file = "${params.genotyping_output}/genotypes/all.filtered.snps.annotated.vcf.gz"
-
-
-Channel
-	.fromPath(params.samples_file)
-	.splitCsv(header:true, sep:'\t')
-	.map{ row -> tuple( row.indiv_id, row.ag_id, row.bam_file, "${params.genotyping_output}/bed_files/${row.filtered_sites_file}", "${params.genotyping_output}/bed_files/${row.filtered_sites_file}.tbi"  ) }
-	.tap{ SAMPLES_AGGREGATIONS }
+nextflow.enable.dsl = 2
+// TODO USE DOCKER 
 
 process generate_h5_tables {
-
 	scratch true
 
-	input:
-		file vcf_file from file(genotype_file)
-		file '*' from file("${genotype_file}.csi")
-		file chrom_sizes from file(genome_chrom_sizes_file)
-
 	output:
-		file '*.h5' into GENOTYPES_HDF
+		path '*.h5'
 
 	script:
 	"""
-	chroms=("\$(tabix -l ${vcf_file})")
+	chroms=("\$(tabix -l ${params.genotype_file})")
 	for chrom in \${chroms[@]}; do
-		bcftools view -r \${chrom} -Oz ${vcf_file} > \${chrom}.vcf.gz
+		bcftools view -r \${chrom} -Oz ${params.genotype_file} > \${chrom}.vcf.gz
 		bcftools index \${chrom}.vcf.gz
 	done
 
-	gzip -c ${chrom_sizes} > chrom_sizes.txt.gz
+	gzip -c ${params.chrom_sizes} > chrom_sizes.txt.gz
 
 	${params.wasp_path}/snp2h5/snp2h5 --chrom chrom_sizes.txt.gz \
 		--format vcf \
@@ -49,37 +32,26 @@ process remap_bamfiles {
 
 	scratch true
 
-	publishDir params.outdir + "/remapped", mode: 'symlink'
+	publishDir params.outdir + "/remapped"
 
 	cpus 2
 
 	input:
-	set val(indiv_id), val(ag_number), val(bam_file), val(filtered_sites_file), val(filtered_sites_file_index) from SAMPLES_AGGREGATIONS
-
-	file genome from file(params.genome) // doesn't actually make a file
-	file '*' from file("${params.genome}.amb")
-  	file '*' from file("${params.genome}.ann")
-  	file '*' from file("${params.genome}.bwt")
-  	file '*' from file("${params.genome}.fai")
-  	file '*' from file("${params.genome}.pac")
-  	file '*' from file("${params.genome}.sa")
-	
-	file nuclear_chroms from file(nuclear_chroms)
-	file '*' from GENOTYPES_HDF.collect()
+		tuple val(indiv_id), val(ag_number), val(bam_file), val(filtered_sites_file)
+		path h5_tables
 	
 	output:
-	set val(indiv_id), val(ag_number), val(filtered_sites_file), val(filtered_sites_file_index), path("${ag_number}.initial_reads.bed.gz"), file("${ag_number}.initial_reads.bed.gz.tbi"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai") into REMAPPED_READS
+		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), path("${ag_number}.initial_reads.bed.gz"), file("${ag_number}.initial_reads.bed.gz.tbi"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai")
 
 	script:
-	genome = "${params.genome}.fa"
 	"""
 	## split SE from PE reads
 	##
-	samtools view -O bam -h -F 1 --reference ${genome} ${bam_file} > se.bam
+	samtools view -O bam -h -F 1 --reference ${params.genome_fasta} ${bam_file} > se.bam
 	samtools index se.bam
 	n_se=\$(samtools view -c se.bam)
 
-	samtools view -O bam -h -f 1 --reference ${genome} ${bam_file} > pe.bam
+	samtools view -O bam -h -f 1 --reference ${params.genome_fasta} ${bam_file} > pe.bam
 	samtools index pe.bam
 	n_pe=\$(samtools view -c pe.bam)
 
@@ -90,7 +62,7 @@ process remap_bamfiles {
 	if [[ \${n_se} -gt 0 ]]; then
 		
 		# an ugly hack to deal with repeated read names on legacy SOLEXA GA1 data
-		$baseDir/bin/hash_se_reads.py se.bam se.hashed.bam
+		${moduleDir}/bin/hash_se_reads.py se.bam se.hashed.bam
 
 		## step 1 -- remove duplicates
 		##
@@ -119,26 +91,25 @@ process remap_bamfiles {
 			se.reads.rmdup.sorted.bam
 
 		## step 3 -- re-align reads
-		##
 
-		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${genome} \
+		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta} \
 			se.reads.rmdup.sorted.remap.fq.gz \
 		> se.reads.rmdup.sorted.remap.fq.sai
 
 		bwa samse -n 10 \
-			${genome} \
+			${params.genome_fasta} \
 			se.reads.rmdup.sorted.remap.fq.sai \
 			se.reads.rmdup.sorted.remap.fq.gz  \
-		| samtools view -b -t ${genome}.fai - \
+		| samtools view -b --reference ${params.genome_fasta} - \
 		> se.reads.remapped.bam
 
 		## step 4 -- mark QC flag
 		## Creates filtered bam file se.reads.remapped.marked.bam 
 
-		python3 $baseDir/bin/filter_reads.py \
+		python3 ${moduleDir}/bin/filter_reads.py \
 			se.reads.remapped.bam \
 			se.reads.remapped.marked.bam \
-			${nuclear_chroms}
+			${params.nuclear_chroms}
 
 		## step 5 -- filter reads
 
@@ -185,30 +156,26 @@ process remap_bamfiles {
 			pe.reads.rmdup.sorted.bam
 
 		## step 3 -- re-align reads
-		##
-
-		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${genome} \
+		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta} \
 			pe.reads.rmdup.sorted.remap.fq1.gz \
 		> pe.reads.rmdup.sorted.remap.fq1.sai
 
-		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${genome} \
+		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta} \
 			pe.reads.rmdup.sorted.remap.fq2.gz \
 		> pe.reads.rmdup.sorted.remap.fq2.sai
 
 		bwa sampe -n 10 -a 750 \
-			${genome} \
+			${params.genome_fasta} \
 			pe.reads.rmdup.sorted.remap.fq1.sai pe.reads.rmdup.sorted.remap.fq2.sai \
 			pe.reads.rmdup.sorted.remap.fq1.gz pe.reads.rmdup.sorted.remap.fq2.gz \
-		| samtools view -b -t ${genome}.fai - \
+		| samtools view -b --reference ${params.genome_fasta} - \
 		> pe.reads.remapped.bam
 
 		## step 4 -- mark QC flag
-		##
-
-		python3 $baseDir/bin/filter_reads.py \
+		python3 $moduleDir/bin/filter_reads.py \
 			pe.reads.remapped.bam \
 			pe.reads.remapped.marked.bam \
-			${nuclear_chroms}
+			${params.nuclear_chroms}
 
 		## step 5 -- filter reads
 
@@ -242,7 +209,7 @@ process remap_bamfiles {
 	
 	samtools index reads.rmdup.sorted.bam
 
-	python3 $baseDir/bin/pileup_file.py \
+	python3 ${moduleDir}/bin/pileup_file.py \
 		 ${filtered_sites_file} reads.rmdup.sorted.bam \
 		  | sort-bed - | bgzip -c > ${ag_number}.initial_reads.bed.gz
 	
@@ -269,40 +236,60 @@ process count_reads {
 	publishDir params.outdir + "/count_reads", mode: 'symlink'
 
 	input:
-	set val(indiv_id), val(ag_number), val(filtered_sites_file), val(filtered_sites_file_index), file(bed_all_reads_file), file(bed_all_reads_file_index), file(bam_passing_file), file(bam_passing_file_index) from REMAPPED_READS
+		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), path(bed_all_reads_file), path(bed_all_reads_file_index), path(bam_passing_file), path(bam_passing_file_index)
 
 	output:
-	set val(indiv_id), file(name), file("${name}.tbi") into COUNT_READS_FILES
+		tuple val(indiv_id), path(name), path("${name}.tbi")
 
 	script:
 	name = "${ag_number}.bed.gz"
 	"""
-	$baseDir/bin/count_tags_pileup.py \
+	$moduleDir/bin/count_tags_pileup.py \
 		${filtered_sites_file} ${bed_all_reads_file} ${bam_passing_file} | sort-bed - | bgzip -c > ${name}
 	
 	tabix -p bed ${name}
 	"""
 }
 
-INDIV_MERGED_COUNT_FILES = COUNT_READS_FILES.groupTuple()
 
 process merge_by_indiv {
-	publishDir params.outdir + "/indiv_merged_files", mode: 'symlink'
+	publishDir params.outdir + "/indiv_merged_files"
 
 	input:
-	tuple val(indiv_id), path(bed_files), path(bed_file_index) from INDIV_MERGED_COUNT_FILES
+		tuple val(indiv_id), path(bed_files), path(bed_file_index)
 
 	output:
-	tuple val(indiv_id), file(name)
+		tuple val(indiv_id), path(name)
 
 	script:
 	name = "${indiv_id}.snps.bed"
 	"""
-	echo ${bed_files}
 	for file in ${bed_files}; do
-		python3 $baseDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
+		python3 $moduleDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
 	done
 	sort -k 1,1 -k2,2n ${indiv_id}.snps > ${name}
 	rm ${indiv_id}.snps
 	"""
+}
+
+workflow waspRealigning {
+	take:
+		samples_aggregations
+	main:
+		h5_tables = generate_h5_tables().collect()
+		count_reads_files = remap_bamfiles(samples_aggregations, h5_tables) | count_reads
+		indiv_merged_count_files = count_reads_files.groupTuple()
+		merge_by_indiv(indiv_merged_count_files)
+	emit:
+		merge_by_indiv.out
+}
+
+workflow {
+	samples_aggregations = Channel
+		.fromPath(params.samples_file)
+		.splitCsv(header:true, sep:'\t')
+		.map{ row -> tuple(row.indiv_id, row.ag_id, row.bam_file,
+		row.filtered_sites_file) }
+
+	waspRealigning(samples_aggregations)
 }
