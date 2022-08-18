@@ -1,10 +1,10 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl = 2
 // TODO USE DOCKER 
-
+params.conda = "/home/sabramov/miniconda3/envs/babachi"
 process generate_h5_tables {
 	scratch true
-
+	conda params.conda
 	output:
 		path '*.h5'
 
@@ -31,7 +31,7 @@ process remap_bamfiles {
 	tag "${indiv_id}:${ag_number}"
 
 	scratch true
-
+	conda params.conda
 	publishDir params.outdir + "/remapped"
 
 	cpus 2
@@ -232,7 +232,7 @@ process remap_bamfiles {
 
 process count_reads {
 	tag "${indiv_id}:${ag_number}"
-
+	conda params.conda
 	publishDir params.outdir + "/count_reads", mode: 'symlink'
 
 	input:
@@ -254,6 +254,7 @@ process count_reads {
 
 process merge_by_indiv {
 	publishDir params.outdir + "/indiv_merged_files"
+	conda params.conda
 
 	input:
 		tuple val(indiv_id), path(bed_files), path(bed_file_index)
