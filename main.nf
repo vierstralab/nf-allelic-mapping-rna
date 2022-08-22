@@ -1,7 +1,17 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl = 2
-// TODO USE DOCKER 
+
+
+// TODO move extend metadata process to shared?
+// TODO USE DOCKER
 params.conda = "/home/sabramov/miniconda3/envs/babachi"
+
+def set_key_for_group_tuple(ch) {
+  channel_1.groupTuple()
+    .map(key, files -> tuple(groupKey(key, files.size()), files))
+    .transpose()
+}
+
 process generate_h5_tables {
 	scratch true
 	conda params.conda
@@ -273,14 +283,33 @@ process merge_by_indiv {
 	"""
 }
 
+process extend_metadata {
+	publishDir params.outdir
+    conda params.conda
+
+	input:
+		tuple val(indiv_id), path(bed_files)
+
+	output:
+		path name
+
+	script:
+	name = 'metadata+filtered_vcfs.txt'
+	column = ['filtered_vcf', *bed_files].join('\n')
+	"""
+	echo "${column}" > columns.txt
+	paste ${params.samples_file} columns.txt > ${name}
+	"""
+}
+
 workflow waspRealigning {
 	take:
 		samples_aggregations
 	main:
 		h5_tables = generate_h5_tables().collect()
 		count_reads_files = remap_bamfiles(samples_aggregations, h5_tables) | count_reads
-		indiv_merged_count_files = count_reads_files.groupTuple()
-		merge_by_indiv(indiv_merged_count_files)
+		indiv_merged_count_files = set_key_for_group_tuple(count_reads_files).groupTuple()
+		merge_by_indiv(indiv_merged_count_files) | extend_metadata
 	emit:
 		merge_by_indiv.out
 }
