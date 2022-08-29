@@ -283,25 +283,6 @@ process merge_by_indiv {
 	"""
 }
 
-process extend_metadata {
-	publishDir params.outdir
-    conda params.conda
-
-	input:
-		tuple val(indiv_id), path(bed_files)
-
-	output:
-		path name
-
-	script:
-	name = 'metadata+filtered_vcfs.txt'
-	column = ['filtered_vcf', *bed_files].join('\n')
-	"""
-	echo "${column}" > columns.txt
-	paste ${params.samples_file} columns.txt > ${name}
-	"""
-}
-
 workflow waspRealigning {
 	take:
 		samples_aggregations
@@ -309,7 +290,7 @@ workflow waspRealigning {
 		h5_tables = generate_h5_tables().collect()
 		count_reads_files = remap_bamfiles(samples_aggregations, h5_tables) | count_reads
 		indiv_merged_count_files = set_key_for_group_tuple(count_reads_files).groupTuple()
-		merge_by_indiv(indiv_merged_count_files) | extend_metadata
+		merge_by_indiv(indiv_merged_count_files)
 	emit:
 		merge_by_indiv.out
 }
