@@ -7,9 +7,9 @@ nextflow.enable.dsl = 2
 params.conda = "/home/sabramov/miniconda3/envs/babachi"
 
 def set_key_for_group_tuple(ch) {
-  channel_1.groupTuple()
-    .map(key, files -> tuple(groupKey(key, files.size()), files))
-    .transpose()
+  ch.groupTuple()
+  .map{ it -> tuple(groupKey(it[0], it[1].size()), *it[1..(it.size()-1)]) }
+  .transpose()
 }
 
 process generate_h5_tables {
