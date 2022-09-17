@@ -6,10 +6,19 @@ def set_key_for_group_tuple(ch) {
   .map{ it -> tuple(groupKey(it[0], it[1].size()), *it[1..(it.size()-1)]) }
   .transpose()
 }
-wasp_path = '/opt/WASP/'
+
+def get_container(file_name) {
+  parent = file(file_name).parent
+  container = "-v ${parent}:${parent}"
+}
+
+wasp_path = ''
+
+
 process generate_h5_tables {
 	scratch true
 	container "${params.container}"
+		containerOptions "${get_container(params.genotype_file)} ${get_container(params.chrom_sizes)}"
 	output:
 		path '*.h5'
 
@@ -23,7 +32,7 @@ process generate_h5_tables {
 
 	gzip -c ${params.chrom_sizes} > chrom_sizes.txt.gz
 
-	${wasp_path}snp2h5/snp2h5 --chrom chrom_sizes.txt.gz \
+	/opt/WASP/snp2h5/snp2h5 --chrom chrom_sizes.txt.gz \
 		--format vcf \
 		--haplotype haplotypes.h5 \
 		--snp_index snp_index.h5 \
@@ -37,6 +46,7 @@ process remap_bamfiles {
 
 	scratch true
 	container "${params.container}"
+	containerOptions "${get_container(params.genome_fasta)} ${get_container(params.nuclear_chroms)}"
 	publishDir params.outdir + "/remapped"
 
 	cpus 2
@@ -71,7 +81,7 @@ process remap_bamfiles {
 
 		## step 1 -- remove duplicates
 		##
-		python3 ${wasp_path}mapping/rmdup.py \
+		python3 /opt/WASP/mapping/rmdup.py \
 			se.hashed.bam  se.reads.rmdup.bam
 
 		samtools sort \
@@ -86,7 +96,7 @@ process remap_bamfiles {
 		### se.reads.rmdup.sorted.to.remap.bam (reads to remap)
 		### se.reads.rmdup.sorted.keep.bam (reads to keep)
 		### se.reads.rmdup.sorted.remap.fq.gz (fastq file containing the reads with flipped alleles to remap)
-		python3 ${wasp_path}mapping/find_intersecting_snps.py \
+		python3 /opt/WASP/mapping/find_intersecting_snps.py \
 			--is_sorted \
 			--output_dir \${PWD} \
 			--snp_tab snp_tab.h5 \
@@ -124,7 +134,7 @@ process remap_bamfiles {
 		| samtools view -b -F 512 - \
 		> se.reads.remapped.marked.filtered.bam
 
-		python3 ${wasp_path}mapping/filter_remapped_reads.py \
+		python3 /opt/WASP/mapping/filter_remapped_reads.py \
 			se.reads.rmdup.sorted.to.remap.bam \
 			se.reads.remapped.marked.filtered.bam \
 			se.reads.remapped.result.bam
@@ -138,7 +148,7 @@ process remap_bamfiles {
 		
 		## step 1 -- remove duplicates
 		##
-		python3 ${wasp_path}mapping/rmdup_pe.py \
+		python3 /opt/WASP/mapping/rmdup_pe.py \
 			pe.bam pe.reads.rmdup.bam
 
 		samtools sort \
@@ -150,7 +160,7 @@ process remap_bamfiles {
 
 		## step 2 -- get reads overlapping a SNV
 		##
-		python3 ${wasp_path}mapping/find_intersecting_snps.py \
+		python3 /opt/WASP/mapping/find_intersecting_snps.py \
 			--is_paired_end \
 			--is_sorted \
 			--output_dir \${PWD} \
@@ -190,7 +200,7 @@ process remap_bamfiles {
 		| samtools view -b -F 512 - \
 		> pe.reads.remapped.marked.filtered.bam
 
-		python3 ${wasp_path}mapping/filter_remapped_reads.py \
+		python3 /opt/WASP/mapping/filter_remapped_reads.py \
 			pe.reads.rmdup.sorted.to.remap.bam \
 			pe.reads.remapped.marked.filtered.bam \
 			pe.reads.remapped.result.bam
