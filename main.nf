@@ -18,8 +18,10 @@ wasp_path = '/home/sabramov/projects/ENCODE4/WASP'
 
 process generate_h5_tables {
 	scratch true
-	container "${params.container}"
-		containerOptions "${get_container(params.genotype_file)} ${get_container(params.chrom_sizes)}"
+	// container "${params.container}"
+	// containerOptions "${get_container(params.genotype_file)} ${get_container(params.chrom_sizes)}"
+	conda conda
+
 	output:
 		path '*.h5'
 
