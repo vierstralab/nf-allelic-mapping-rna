@@ -14,7 +14,7 @@ def set_key_for_group_tuple(ch) {
 
 process generate_h5_tables {
 	scratch true
-	conda params.conda
+	conda "${params.conda}"
 	output:
 		path '*.h5'
 
@@ -41,7 +41,7 @@ process remap_bamfiles {
 	tag "${indiv_id}:${ag_number}"
 
 	scratch true
-	conda params.conda
+	conda "${params.conda}"
 	publishDir params.outdir + "/remapped"
 
 	cpus 2
@@ -242,7 +242,7 @@ process remap_bamfiles {
 
 process count_reads {
 	tag "${indiv_id}:${ag_number}"
-	conda params.conda
+	conda "${params.conda}"
 	publishDir params.outdir + "/count_reads", mode: 'symlink'
 
 	input:
@@ -264,7 +264,8 @@ process count_reads {
 
 process merge_by_indiv {
 	publishDir params.outdir + "/indiv_merged_files"
-	conda params.conda
+	conda "${params.conda}"
+	scratch true
 
 	input:
 		tuple val(indiv_id), path(bed_files), path(bed_file_index)
@@ -279,7 +280,6 @@ process merge_by_indiv {
 		python3 $moduleDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
 	done
 	sort -k 1,1 -k2,2n ${indiv_id}.snps > ${name}
-	rm ${indiv_id}.snps
 	"""
 }
 
