@@ -72,7 +72,7 @@ process remap_bamfiles {
 	if [[ \${n_se} -gt 0 ]]; then
 		
 		# an ugly hack to deal with repeated read names on legacy SOLEXA GA1 data
-		${moduleDir}/bin/hash_se_reads.py se.bam se.hashed.bam
+		$moduleDir/bin/hash_se_reads.py se.bam se.hashed.bam
 
 		## step 1 -- remove duplicates
 		##
@@ -116,7 +116,7 @@ process remap_bamfiles {
 		## step 4 -- mark QC flag
 		## Creates filtered bam file se.reads.remapped.marked.bam 
 
-		python3 ${moduleDir}/bin/filter_reads.py \
+		python3 $moduleDir/bin/filter_reads.py \
 			se.reads.remapped.bam \
 			se.reads.remapped.marked.bam \
 			${params.nuclear_chroms}
@@ -219,7 +219,7 @@ process remap_bamfiles {
 	
 	samtools index reads.rmdup.sorted.bam
 
-	python3 ${moduleDir}/bin/pileup_file.py \
+	python3 $moduleDir/bin/pileup_file.py \
 		 ${filtered_sites_file} reads.rmdup.sorted.bam \
 		  | sort-bed - | bgzip -c > ${ag_number}.initial_reads.bed.gz
 	
@@ -289,7 +289,7 @@ workflow waspRealigning {
 	main:
 		h5_tables = generate_h5_tables().collect()
 		count_reads_files = remap_bamfiles(samples_aggregations, h5_tables) | count_reads
-		indiv_merged_count_files = set_key_for_group_tuple(count_reads_files).groupTuple()
+		indiv_merged_count_files = count_reads_files.groupTuple()
 		merge_by_indiv(indiv_merged_count_files)
 	emit:
 		merge_by_indiv.out
@@ -302,5 +302,5 @@ workflow {
 		.map{ row -> tuple(row.indiv_id, row.ag_id, row.bam_file,
 		row.filtered_sites_file) }
 
-	waspRealigning(samples_aggregations)
+	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 }
