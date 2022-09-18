@@ -51,7 +51,7 @@ process remap_bamfiles {
 	conda conda
 	// container "${params.container}"
 	// containerOptions "${get_container(params.genome_fasta)} ${get_container(params.nuclear_chroms)}"
-	publishDir params.outdir + "/remapped"
+	publishDir params.outdir + "/remapped", overwrite: true
 
 	cpus 2
 
