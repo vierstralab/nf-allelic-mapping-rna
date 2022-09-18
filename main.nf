@@ -301,10 +301,11 @@ workflow waspRealigning {
 	main:
 		h5_tables = generate_h5_tables().collect()
 		count_reads_files = remap_bamfiles(samples_aggregations, h5_tables) | count_reads
-		indiv_merged_count_files = count_reads_files.groupTuple()
-		merge_by_indiv(indiv_merged_count_files)
+		//indiv_merged_count_files = count_reads_files.groupTuple()
+		//merge_by_indiv(indiv_merged_count_files)
 	emit:
-		merge_by_indiv.out
+		count_reads_files
+		//merge_by_indiv.out
 }
 
 workflow {
