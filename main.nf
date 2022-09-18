@@ -313,7 +313,7 @@ workflow {
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
 		.map{ row -> tuple(row.indiv_id, row.ag_id, row.bam_file,
-		row.filtered_sites_file) }.distinct { it[0] }
+		row.filtered_sites_file) }.distinct { it[1] }
 
 	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 }
