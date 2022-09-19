@@ -89,7 +89,7 @@ process remap_bamfiles {
 			se.hashed.bam  se.reads.rmdup.bam
 
 		samtools sort \
-			-m ${task.memory.toMega()}M \
+			-m ${task.memory.toMega() / task.cpus}M \
 			-@${task.cpus} \
 			-o se.reads.rmdup.sorted.bam \
 			-O bam \
@@ -133,7 +133,7 @@ process remap_bamfiles {
 		## step 5 -- filter reads
 
 		samtools sort \
-			-m ${task.memory.toMega()}M \
+			-m ${task.memory.toMega() / task.cpus}M \
 			-@${task.cpus} -l0 se.reads.remapped.marked.bam \
 		| samtools view -b -F 512 - \
 		> se.reads.remapped.marked.filtered.bam
@@ -199,7 +199,7 @@ process remap_bamfiles {
 		## step 5 -- filter reads
 
 		samtools sort \
-			-m ${task.memory.toMega()}M \
+			-m ${task.memory.toMega() / task.cpus}M \
 			-@${task.cpus} -l0 pe.reads.remapped.marked.bam \
 		| samtools view -b -F 512 - \
 		> pe.reads.remapped.marked.filtered.bam
@@ -221,7 +221,7 @@ process remap_bamfiles {
 		\${merge_files}
 
 	samtools sort \
-		-m ${task.memory.toMega()}M \
+		-m ${task.memory.toMega() / task.cpus}M \
 		-@${task.cpus} \
 		-o reads.rmdup.sorted.bam  \
 		reads.rmdup.bam
@@ -239,7 +239,7 @@ process remap_bamfiles {
 		\${remapped_merge_files}
 
 	samtools sort \
-		-m ${task.memory.toMega()}M \
+		-m ${task.memory.toMega() / task.cpus}M \
 		-@${task.cpus} \
 		-o reads.passing.sorted.bam  \
 		reads.passing.bam 
