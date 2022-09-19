@@ -156,7 +156,7 @@ process remap_bamfiles {
 			pe.bam pe.reads.rmdup.bam
 
 		samtools sort \
-			-m ${task.memory.toMega()}M \
+			-m ${task.memory.toMega() / task.cpus}M \
 			-@${task.cpus} \
 			-o pe.reads.rmdup.sorted.bam \
 			-O bam \
