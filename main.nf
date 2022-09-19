@@ -63,6 +63,7 @@ process remap_bamfiles {
 		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), path("${ag_number}.initial_reads.bed.gz"), file("${ag_number}.initial_reads.bed.gz.tbi"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai")
 
 	script:
+	mem=task.memory.toMega() / task.cpus * 0.9
 	"""
 	## split SE from PE reads
 	##
@@ -89,7 +90,7 @@ process remap_bamfiles {
 			se.hashed.bam  se.reads.rmdup.bam
 
 		samtools sort \
-			-m ${task.memory.toMega() / task.cpus}M \
+			-m ${mem}M \
 			-@${task.cpus} \
 			-o se.reads.rmdup.sorted.bam \
 			-O bam \
@@ -133,7 +134,7 @@ process remap_bamfiles {
 		## step 5 -- filter reads
 
 		samtools sort \
-			-m ${task.memory.toMega() / task.cpus}M \
+			-m ${mem}M \
 			-@${task.cpus} -l0 se.reads.remapped.marked.bam \
 		| samtools view -b -F 512 - \
 		> se.reads.remapped.marked.filtered.bam
@@ -156,7 +157,7 @@ process remap_bamfiles {
 			pe.bam pe.reads.rmdup.bam
 
 		samtools sort \
-			-m ${task.memory.toMega() / task.cpus}M \
+			-m ${mem}M \
 			-@${task.cpus} \
 			-o pe.reads.rmdup.sorted.bam \
 			-O bam \
@@ -199,7 +200,7 @@ process remap_bamfiles {
 		## step 5 -- filter reads
 
 		samtools sort \
-			-m ${task.memory.toMega() / task.cpus}M \
+			-m ${mem}M \
 			-@${task.cpus} -l0 pe.reads.remapped.marked.bam \
 		| samtools view -b -F 512 - \
 		> pe.reads.remapped.marked.filtered.bam
@@ -221,7 +222,7 @@ process remap_bamfiles {
 		\${merge_files}
 
 	samtools sort \
-		-m ${task.memory.toMega() / task.cpus}M \
+		-m ${mem}M \
 		-@${task.cpus} \
 		-o reads.rmdup.sorted.bam  \
 		reads.rmdup.bam
@@ -239,7 +240,7 @@ process remap_bamfiles {
 		\${remapped_merge_files}
 
 	samtools sort \
-		-m ${task.memory.toMega() / task.cpus}M \
+		-m ${mem}M \
 		-@${task.cpus} \
 		-o reads.passing.sorted.bam  \
 		reads.passing.bam 
