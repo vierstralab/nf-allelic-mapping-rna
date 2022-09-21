@@ -51,7 +51,7 @@ process remap_bamfiles {
 	conda conda
 	// container "${params.container}"
 	// containerOptions "${get_container(params.genome_fasta)} ${get_container(params.nuclear_chroms)}"
-	publishDir params.outdir + "/remapped", overwrite: true
+	publishDir params.outdir + "/remapped"
 
 	cpus 2
 
@@ -60,7 +60,7 @@ process remap_bamfiles {
 		path h5_tables
 	
 	output:
-		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai")
+		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai")
 
 	script:
 	mem=task.memory.toMega() / task.cpus * 0.9
@@ -232,7 +232,7 @@ process count_reads {
 	tag "${indiv_id}:${ag_number}"
 	// container "${params.container}"
 	conda conda
-	publishDir params.outdir + "/count_reads", mode: 'symlink'
+	publishDir params.outdir + "/count_reads"
 
 	input:
 		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), path(bam_passing_file), path(bam_passing_file_index)
