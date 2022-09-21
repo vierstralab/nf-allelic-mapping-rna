@@ -6,6 +6,7 @@ from pileup_file import SNV
 
 
 def main(in_file):
+    name = os.path.basename(in_file).split('.')[0]
     with pysam.TabixFile(in_file) as vars_file:
         for line in vars_file.fetch():
             split_line = line.strip('\n').split('\t')
@@ -16,7 +17,7 @@ def main(in_file):
                 continue
             if variant.maf < 0.05:
                 continue
-            print('\t'.join(map(str, [*split_line[:6], n_ref, n_alt])))
+            print('\t'.join(map(str, [*split_line[:6], n_ref, n_alt, name])))
 
 
 if __name__ == '__main__':
