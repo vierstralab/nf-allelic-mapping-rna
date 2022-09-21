@@ -11,7 +11,7 @@ class SNV:
         GT encoded as either 0/1 or with pipe 0|0
     """
     
-    __class_fields = ['contig', 'start', 'end', 'id', 'ref', 'alt', 'maf', 'gt']
+    __class_fields = ['contig', 'start', 'end', 'id', 'ref', 'alt', 'maf', 'gt', 'gq', 'n_original_reads']
     def __init__(self, fields):
         for field_name, field_value in zip(self.__class_fields, fields):
             setattr(self, field_name, field_value)
@@ -19,6 +19,7 @@ class SNV:
         self.end = int(self.end)
         self.maf = float(self.maf)
         self.is_het = sum(map(int, self.gt.replace('|','/').split('/'))) == 1
+        self.n_original_reads = int(self.n_original_reads)
        
     def to_list(self):
         return [getattr(self, field) for field in self.__class_fields]

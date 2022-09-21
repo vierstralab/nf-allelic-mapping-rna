@@ -60,7 +60,7 @@ process remap_bamfiles {
 		path h5_tables
 	
 	output:
-		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), path("${ag_number}.initial_reads.bed.gz"), file("${ag_number}.initial_reads.bed.gz.tbi"), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai")
+		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), file("${ag_number}.passing.bam"), file ("${ag_number}.passing.bam.bai")
 
 	script:
 	mem=task.memory.toMega() / task.cpus * 0.9
@@ -75,7 +75,6 @@ process remap_bamfiles {
 	samtools index pe.bam
 	n_pe=\$(samtools view -c pe.bam)
 
-	merge_files=""
 	remapped_merge_files=""
 
 	## single-ended
@@ -143,9 +142,8 @@ process remap_bamfiles {
 			se.reads.rmdup.sorted.to.remap.bam \
 			se.reads.remapped.marked.filtered.bam \
 			se.reads.remapped.result.bam
-
-		merge_files="\${merge_files} se.reads.rmdup.sorted.bam"
-		remapped_merge_files="\${remapped_merge_files} se.reads.remapped.result.bam se.reads.rmdup.sorted.keep.bam"
+		
+		remapped_merge_files="\${remapped_merge_files} se.reads.remapped.result.bam"
 	fi
 
 	## paired-end
@@ -209,32 +207,12 @@ process remap_bamfiles {
 			pe.reads.rmdup.sorted.to.remap.bam \
 			pe.reads.remapped.marked.filtered.bam \
 			pe.reads.remapped.result.bam
-
-		merge_files="\${merge_files} pe.reads.rmdup.sorted.bam"
 		remapped_merge_files="\${remapped_merge_files} pe.reads.remapped.result.bam"
 	fi
 
 
 
 	## step 6 -- merge back reads
-	samtools merge -f \
-		reads.rmdup.bam \
-		\${merge_files}
-
-	samtools sort \
-		-m ${mem}M \
-		-@${task.cpus} \
-		-o reads.rmdup.sorted.bam  \
-		reads.rmdup.bam
-	
-	samtools index reads.rmdup.sorted.bam
-
-	python3 $moduleDir/bin/pileup_file.py \
-		 ${filtered_sites_file} reads.rmdup.sorted.bam \
-		  | sort-bed - | bgzip -c > ${ag_number}.initial_reads.bed.gz
-	
-	tabix -p bed ${ag_number}.initial_reads.bed.gz
-	# todo: merge dedupped se and pe reads
 
 	samtools merge -f reads.passing.bam \
 		\${remapped_merge_files}
@@ -257,7 +235,7 @@ process count_reads {
 	publishDir params.outdir + "/count_reads", mode: 'symlink'
 
 	input:
-		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), path(bed_all_reads_file), path(bed_all_reads_file_index), path(bam_passing_file), path(bam_passing_file_index)
+		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), path(bam_passing_file), path(bam_passing_file_index)
 
 	output:
 		tuple val(indiv_id), path(name), path("${name}.tbi")
@@ -266,7 +244,7 @@ process count_reads {
 	name = "${ag_number}.bed.gz"
 	"""
 	$moduleDir/bin/count_tags_pileup.py \
-		${filtered_sites_file} ${bed_all_reads_file} ${bam_passing_file} | sort-bed - | bgzip -c > ${name}
+		${filtered_sites_file} ${bam_passing_file} | sort-bed - | bgzip -c > ${name}
 	
 	tabix -p bed ${name}
 	"""

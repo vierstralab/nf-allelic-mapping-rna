@@ -21,9 +21,6 @@ def parse_options(args):
 	parser.add_argument("var_file", metavar = "var_file", type = str,
 						help = "Path to variant file (must have corresponding index)")
 
-	parser.add_argument("original_reads_file", metavar = "original_reads_file", type = str, 
-						help = "Path to tab separated file with # of reads for each variant")
-
 	parser.add_argument("remapped_bam_file", metavar = "remapped_bam_file", type = str, 
 						help = "Path to BAM-format tag sequence file")
 
@@ -153,26 +150,16 @@ def check_reads(reads_1, reads_2, unique_reads, ref, alt):
 			continue
 	return n_ref, n_alt, n_failed_bias, n_failed_genotyping
 
-def get_original_read_counts(original_file):
-	result = {}
-	with pysam.TabixFile(original_file) as f:
-		for line in f.fetch():
-			variant = line.strip('\n').split('\t')
-			original_reads = int(variant[-1])
-			result[str(SNV(variant[:-1]))] = original_reads
-	return result
 	
 def main(argv = sys.argv[1:]):
 
 	args = parse_options(argv)
-
-	original_reads_dict = get_original_read_counts(args.original_reads_file)
 	for variant, reads_1, reads_2, read_pairs in reads_to_dict(args.var_file, args.remapped_bam_file, args.chrom):
 		n_remapped_reads = len(read_pairs)
 		n_ref, n_alt, n_failed_bias, n_failed_genotyping = check_reads(reads_1, reads_2,
 															read_pairs, variant.ref, variant.alt)
 		variant_str = str(variant)
-		n_original_reads = original_reads_dict.get(variant_str, 100)
+		n_original_reads = variant.n_original_reads
 		
 		n_failed_mapping = n_original_reads - n_remapped_reads
 
