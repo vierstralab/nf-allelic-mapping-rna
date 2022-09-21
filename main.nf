@@ -308,6 +308,25 @@ workflow waspRealigning {
 		merge_by_indiv.out
 }
 
+workflow test {
+	base_path = '/net/seq/data2/projects/sabramov/ENCODE4/wasp-realigning/output/remapped'
+	samples_aggregations = Channel
+		.fromPath(params.samples_file)
+		.splitCsv(header:true, sep:'\t')
+			
+		.map{ row -> tuple(row.indiv_id, row.ag_id, 
+			row.filtered_sites_file, 
+			file("${base_path}/${row.ag_id}.initial_reads.bed.gz"),
+			file("${base_path}/${row.ag_id}.initial_reads.bed.gz.tbi"),
+			file("${base_path}/${row.ag_id}.passing.bam"),
+			file("${base_path}/${row.ag_id}.passing.bam.bai")) }.distinct { it[1] }
+	
+	count_reads_files = count_reads(set_key_for_group_tuple(samples_aggregations))
+	indiv_merged_count_files = count_reads_files.groupTuple()
+	merge_by_indiv(indiv_merged_count_files)
+	
+}
+
 workflow {
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
