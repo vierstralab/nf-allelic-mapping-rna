@@ -2,7 +2,7 @@ import pysam
 import sys
 import os
 
-from pileup_file import SNV
+from count_tags_pileup import SNV
 
 
 def main(in_file):
