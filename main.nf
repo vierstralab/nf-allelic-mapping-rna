@@ -275,6 +275,7 @@ process count_reads {
 
 process merge_by_indiv {
 	publishDir params.outdir + "/indiv_merged_files"
+	tag "${indiv_id}"
 	// container "${params.container}"
 	conda conda
 	scratch true
