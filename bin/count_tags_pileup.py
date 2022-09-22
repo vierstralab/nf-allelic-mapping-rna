@@ -6,7 +6,6 @@ import sys
 import logging
 
 from argparse import ArgumentParser
-from pileup_file import reads_to_dict
 import pysam
 
 logging.basicConfig(stream = sys.stderr, level='WARNING')
