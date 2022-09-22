@@ -24,7 +24,10 @@ class SNV:
         self.end = int(self.end)
         self.maf = float(self.maf)
         self.is_het = sum(map(int, self.gt.replace('|','/').split('/'))) == 1
-        self.n_original_reads = int(self.n_original_reads)
+        try: 
+            self.n_original_reads = int(self.n_original_reads)
+        except AttributeError:
+            pass
        
     def to_list(self):
         return [getattr(self, field) for field in self.__class_fields[:-2]]
