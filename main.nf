@@ -63,7 +63,7 @@ process remap_bamfiles {
 		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai")
 
 	script:
-	mem=task.memory.toMega() / task.cpus * 0.9
+	mem=Math.round(task.memory.toMega() / task.cpus * 0.95)
 	"""
 	## split SE from PE reads
 	##
