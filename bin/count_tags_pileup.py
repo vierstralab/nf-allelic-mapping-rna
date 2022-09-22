@@ -27,7 +27,7 @@ class SNV:
         self.n_original_reads = int(self.n_original_reads)
        
     def to_list(self):
-        return [getattr(self, field) for field in self.__class_fields]
+        return [getattr(self, field) for field in self.__class_fields[:-2]]
 
     def __repr__(self):
         return '\t'.join(map(str, self.to_list()))

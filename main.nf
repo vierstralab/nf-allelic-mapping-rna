@@ -16,6 +16,40 @@ conda = '/home/sabramov/miniconda3/envs/babachi/envs/allelic-mapping'
 //wasp_path = '/opt/WASP'
 wasp_path = '/home/sabramov/projects/ENCODE4/WASP'
 
+
+process filter_variants {
+	tag "${indiv_id}"
+	conda params.conda
+	publishDir "${params.outdir}/bed_files"
+
+	input:
+		tuple val(indiv_id), val(ag_id)
+
+	output:
+		tuple val(indiv_id), val(ag_id), path(outname), path("${outname}.tbi")
+
+	script:
+	outname = "${indiv_id}:${ag_id}.bed.gz"
+	"""
+	bcftools query \
+		-s ${indiv_id} \
+		-i'GT="alt"' \
+		-f'%CHROM\\t%POS0\\t%POS\\t%ID\\t%REF\\t%ALT\\t%INFO/MAF\\t[%GT\\t%GQ\\t%DP\\t%AD{0}\\t%AD{1}]\\n' \
+		${params.genotype_file} \
+	| awk -v OFS="\\t" \
+		-v min_GQ=${params.min_GQ} -v min_AD=${params.min_AD} -v min_DP=${params.min_DP}\
+		'\$9<min_GQ { next; } \$10<min_DP { next; }\
+			(\$8=="0/1" || \$8=="1/0" || \$8=="0|1" || \$8=="1|0") 
+			&& (\$11<min_AD || \$12<min_AD) { next; } \
+			{ print; }' \
+	| sort-bed - \
+	| { grep -v chrX | grep -v chrY | grep -v chrM | grep -v _random | grep -v _alt | grep -v chrUn || true; } \
+	| bgzip -c > ${outname}
+	tabix -f -p bed "${outname}"
+	"""
+}
+
+
 process generate_h5_tables {
 	scratch true
 	// container "${params.container}"
@@ -56,14 +90,14 @@ process remap_bamfiles {
 	cpus 2
 
 	input:
-		tuple val(indiv_id), val(ag_number), val(bam_file), val(filtered_sites_file)
+		tuple val(indiv_id), val(ag_number), val(bam_file), path(filtered_sites_file), path(filtered_sites_file_index)
 		path h5_tables
 	
 	output:
-		tuple val(indiv_id), val(ag_number), val(filtered_sites_file), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai")
+		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai")
 
 	script:
-	mem=Math.round(task.memory.toMega() / task.cpus * 0.95)
+	mem = Math.round(task.memory.toMega() / task.cpus * 0.95)
 	"""
 	## split SE from PE reads
 	##
@@ -280,7 +314,9 @@ workflow waspRealigning {
 		samples_aggregations
 	main:
 		h5_tables = generate_h5_tables().collect()
-		count_reads_files = remap_bamfiles(samples_aggregations, h5_tables) | count_reads
+		snps_sites = filter_variants(samples_aggregations.map(it -> tuple(it[0], it[1])))
+		samples = samples_aggregations.join(snps_sites, by: [0, 1])
+		count_reads_files = remap_bamfiles(samples, h5_tables) | count_reads
 		indiv_merged_count_files = count_reads_files.groupTuple()
 		merge_by_indiv(indiv_merged_count_files)
 	emit:
@@ -289,6 +325,7 @@ workflow waspRealigning {
 
 workflow test {
 	base_path = '/net/seq/data2/projects/sabramov/ENCODE4/wasp-realigning/output/remapped'
+	
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
@@ -310,8 +347,7 @@ workflow {
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map{ row -> tuple(row.indiv_id, row.ag_id, row.bam_file,
-		row.filtered_sites_file) }.unique { it[1] }
+		.map(row -> tuple(row.indiv_id, row.ag_id, row.bam_file)).unique { it[1] }
 
 	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 }
