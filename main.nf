@@ -19,7 +19,7 @@ wasp_path = '/home/sabramov/projects/ENCODE4/WASP'
 
 process filter_variants {
 	tag "${indiv_id}"
-	conda params.conda
+	conda conda
 	publishDir "${params.outdir}/bed_files"
 
 	input:
