@@ -85,7 +85,7 @@ process remap_bamfiles {
 	conda conda
 	// container "${params.container}"
 	// containerOptions "${get_container(params.genome_fasta)} ${get_container(params.nuclear_chroms)}"
-	publishDir params.outdir + "/remapped"
+	publishDir params.outdir + "/remapped", pattern: "${ag_number}.passing.bam*"
 
 	cpus 2
 
@@ -347,7 +347,6 @@ workflow {
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.ag_id, row.indiv_id, row.bam_file)).unique { it[0] }
-
-	waspRealigning(set_key_for_group_tuple(samples_aggregations))
+		.map(row -> tuple(row.indiv_id, row.ag_id, row.bam_file)).unique { it[1] }
+	waspRealigning(set_key_for_group_tuple(samples_aggregations).map(it -> tuple(it[1], it[0], it[2])))
 }
