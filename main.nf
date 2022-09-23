@@ -23,10 +23,10 @@ process filter_variants {
 	publishDir "${params.outdir}/bed_files"
 
 	input:
-		tuple val(indiv_id), val(ag_id)
+		tuple val(ag_id), val(indiv_id)
 
 	output:
-		tuple val(indiv_id), val(ag_id), path(outname), path("${outname}.tbi")
+		tuple val(ag_id), path(outname), path("${outname}.tbi")
 
 	script:
 	outname = "${indiv_id}:${ag_id}.bed.gz"
@@ -90,7 +90,7 @@ process remap_bamfiles {
 	cpus 2
 
 	input:
-		tuple val(indiv_id), val(ag_number), val(bam_file), path(filtered_sites_file), path(filtered_sites_file_index)
+		tuple val(ag_number), val(indiv_id), val(bam_file), path(filtered_sites_file), path(filtered_sites_file_index)
 		path h5_tables
 	
 	output:
@@ -315,7 +315,7 @@ workflow waspRealigning {
 	main:
 		h5_tables = generate_h5_tables().collect()
 		snps_sites = filter_variants(samples_aggregations.map(it -> tuple(it[0], it[1])))
-		samples = samples_aggregations.join(snps_sites, by: 1)
+		samples = samples_aggregations.join(snps_sites, by: 0)
 		count_reads_files = remap_bamfiles(samples, h5_tables) | count_reads
 		indiv_merged_count_files = count_reads_files.groupTuple()
 		merge_by_indiv(indiv_merged_count_files)
@@ -347,7 +347,7 @@ workflow {
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.indiv_id, row.ag_id, row.bam_file)).unique { it[1] }
+		.map(row -> tuple(row.ag_id, row.indiv_id, row.bam_file)).unique { it[1] }
 
 	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 }
