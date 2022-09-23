@@ -315,7 +315,7 @@ workflow waspRealigning {
 	main:
 		h5_tables = generate_h5_tables().collect()
 		snps_sites = filter_variants(samples_aggregations.map(it -> tuple(it[0], it[1])))
-		samples = samples_aggregations.join(snps_sites, by: [0, 1])
+		samples = samples_aggregations.join(snps_sites, by: 1)
 		count_reads_files = remap_bamfiles(samples, h5_tables) | count_reads
 		indiv_merged_count_files = count_reads_files.groupTuple()
 		merge_by_indiv(indiv_merged_count_files)
