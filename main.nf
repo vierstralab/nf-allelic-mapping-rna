@@ -335,7 +335,7 @@ workflow test {
 			file("${base_path}/${row.ag_id}.initial_reads.bed.gz"),
 			file("${base_path}/${row.ag_id}.initial_reads.bed.gz.tbi"),
 			file("${base_path}/${row.ag_id}.passing.bam"),
-			file("${base_path}/${row.ag_id}.passing.bam.bai")) }.unique { it[1] }
+			file("${base_path}/${row.ag_id}.passing.bam.bai")) }.unique { it[0] }
 	
 	count_reads_files = count_reads(set_key_for_group_tuple(samples_aggregations))
 	indiv_merged_count_files = count_reads_files.groupTuple()
@@ -347,7 +347,7 @@ workflow {
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.ag_id, row.indiv_id, row.bam_file)).unique { it[1] }
+		.map(row -> tuple(row.ag_id, row.indiv_id, row.bam_file)).unique { it[0] }
 
 	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 }
