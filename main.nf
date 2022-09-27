@@ -335,7 +335,7 @@ workflow test {
 			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
 			file("${base_path}/remapped/${row.ag_id}.passing.bam"),
 			file("${base_path}/remapped/${row.ag_id}.passing.bam.bai")) }
-		.unique { it[0] }
+		.unique { it[1] }
 	
 	count_reads_files = count_reads(samples_aggregations)
 	merge_by_indiv(count_reads_files.groupTuple())
