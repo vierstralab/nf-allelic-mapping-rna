@@ -313,9 +313,10 @@ workflow waspRealigning {
 	take:
 		samples_aggregations
 	main:
+		sagr = samples_aggregations.map(it -> tuple(it[1], it[0], it[2]))
 		h5_tables = generate_h5_tables().collect()
-		snps_sites = filter_variants(samples_aggregations.map(it -> tuple(it[0], it[1])))
-		samples = samples_aggregations.join(snps_sites, by: 0)
+		snps_sites = filter_variants(sagr.map(it -> tuple(it[0], it[1])))
+		samples = sagr.join(snps_sites, by: 0)
 		count_reads_files = remap_bamfiles(samples, h5_tables) | count_reads
 		indiv_merged_count_files = count_reads_files.groupTuple()
 		merge_by_indiv(indiv_merged_count_files)
@@ -324,22 +325,19 @@ workflow waspRealigning {
 }
 
 workflow test {
-	base_path = '/net/seq/data2/projects/sabramov/ENCODE4/wasp-realigning/output/remapped'
+	base_path = '/net/seq/data2/projects/sabramov/ENCODE4/wasp-realigning/output'
 	
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-			
 		.map{ row -> tuple(row.indiv_id, row.ag_id, 
-			row.filtered_sites_file, 
-			file("${base_path}/${row.ag_id}.initial_reads.bed.gz"),
-			file("${base_path}/${row.ag_id}.initial_reads.bed.gz.tbi"),
-			file("${base_path}/${row.ag_id}.passing.bam"),
-			file("${base_path}/${row.ag_id}.passing.bam.bai")) }.unique { it[0] }
+			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz"),
+			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
+			file("${base_path}/remapped/${row.ag_id}.passing.bam"),
+			file("${base_path}/remapped/${row.ag_id}.passing.bam.bai")) }
+		.unique { it[0] }
 	
-	count_reads_files = count_reads(set_key_for_group_tuple(samples_aggregations))
-	indiv_merged_count_files = count_reads_files.groupTuple()
-	merge_by_indiv(indiv_merged_count_files)
+	count_reads_files = count_reads(samples_aggregations)
 	
 }
 
@@ -348,5 +346,5 @@ workflow {
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
 		.map(row -> tuple(row.indiv_id, row.ag_id, row.bam_file)).unique { it[1] }
-	waspRealigning(set_key_for_group_tuple(samples_aggregations).map(it -> tuple(it[1], it[0], it[2])))
+	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 }
