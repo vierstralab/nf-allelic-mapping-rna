@@ -338,6 +338,7 @@ workflow test {
 		.unique { it[0] }
 	
 	count_reads_files = count_reads(samples_aggregations)
+	merge_by_indiv(count_reads_files.groupTuple())
 	
 }
 
