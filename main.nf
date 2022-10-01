@@ -326,7 +326,7 @@ workflow waspRealigning {
 
 workflow test {
 	base_path = '/net/seq/data2/projects/sabramov/ENCODE4/wasp-realigning/output'
-	val(indiv_id), path(bed_files), path(bed_file_index)
+
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
