@@ -370,30 +370,23 @@ workflow waspRealigning {
 
 workflow test {
 	base_path = '/net/seq/data2/projects/sabramov/ENCODE4/wasp-realigning/output'
-
-	samples_aggregations = Channel
+	
+	count_reads = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
 		.map(row -> tuple(
 			row.ag_id,
 			row.indiv_id,
 			file("${base_path}/count_reads/${row.ag_id}.bed.gz"),
-			file("${base_path}/count_reads/${row.ag_id}.bed.gz.tbi")))
-		.unique { it[1] }
-	
-	count_reads_initial_input = Channel
-		.fromPath(params.samples_file)
-		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.indiv_id,
-			row.ag_id,
-			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz"),
-			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
-			row.bam_file
-			))
-		.unique { it[1] }
-	inital_reads = count_reads_initial(count_reads_initial_input)
-	//combine_reads(samples_aggregations.join(inital_reads))
-	//merge_by_indiv(samples_aggregations.groupTuple())
+			file("${base_path}/count_reads/${row.ag_id}.bed.gz.tbi"),
+			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz"),
+			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz.tbi")
+			)
+		)
+		.unique { it[0] }.filter { it[4].exists() }
+	//inital_reads = count_reads_initial(count_reads_initial_input)
+	result_reads = combine_reads(count_reads)
+	//merge_by_indiv(result_reads.groupTuple())
 	
 }
 
