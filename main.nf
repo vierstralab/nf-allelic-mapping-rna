@@ -284,9 +284,53 @@ process count_reads {
 	"""
 }
 
+process count_reads_initial {
+	tag "${indiv_id}:${ag_number}"
+	// container "${params.container}"
+	conda conda
+	publishDir params.outdir + "/count_reads_initial"
+
+	input:
+		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), val(bam_file)
+
+	output:
+		tuple val(ag_number), path(name), path("${name}.tbi")
+
+	script:
+	name = "${ag_number}.initial.bed.gz"
+	"""
+	$moduleDir/bin/count_tags_pileup.py \
+		${filtered_sites_file} ${bam_file} | sort-bed - | bgzip -c > ${name}
+	
+	tabix -p bed ${name}
+	"""
+}
+
+process combine_reads {
+	tag "${indiv_id}:${ag_number}"
+	// container "${params.container}"
+	conda conda
+	publishDir params.outdir + "/count_reads_fixed"
+
+	input:
+		tuple val(ag_number), val(indiv_id), path(bed_file), path(bed_file_index), path(bed_file_initial), path(bed_file_initial_index)
+
+	output:
+		tuple val(indiv_id), path(name), path("${name}.tbi")
+
+	script:
+	name = "${ag_number}.fixed.bed.gz"
+	"""
+	$moduleDir/bin/remap_file.py \
+		${bed_file} ${bed_file_initial} | sort-bed - | bgzip -c > ${name}
+	
+	tabix -p bed ${name}
+	"""
+}
+
 
 process merge_by_indiv {
-	publishDir params.outdir + "/indiv_merged_files.maf_filter"
+	publishDir params.outdir + "/indiv_merged_files"
 	tag "${indiv_id}"
 	// container "${params.container}"
 	conda conda
@@ -330,12 +374,26 @@ workflow test {
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.indiv_id,
+		.map(row -> tuple(
+			row.ag_id,
+			row.indiv_id,
 			file("${base_path}/count_reads/${row.ag_id}.bed.gz"),
 			file("${base_path}/count_reads/${row.ag_id}.bed.gz.tbi")))
 		.unique { it[1] }
 	
-	merge_by_indiv(samples_aggregations.groupTuple())
+	count_reads_initial_input = Channel
+		.fromPath(params.samples_file)
+		.splitCsv(header:true, sep:'\t')
+		.map(row -> tuple(row.indiv_id,
+			row.ag_id,
+			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz"),
+			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
+			row.bam_file
+			))
+		.unique { it[1] }
+	inital_reads = count_reads_initial(count_reads_initial_input)
+	//combine_reads(samples_aggregations.join(inital_reads))
+	//merge_by_indiv(samples_aggregations.groupTuple())
 	
 }
 
