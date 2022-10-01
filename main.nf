@@ -286,7 +286,7 @@ process count_reads {
 
 
 process merge_by_indiv {
-	publishDir params.outdir + "/indiv_merged_files"
+	publishDir params.outdir + "/indiv_merged_files.maf_filter"
 	tag "${indiv_id}"
 	// container "${params.container}"
 	conda conda
@@ -326,19 +326,16 @@ workflow waspRealigning {
 
 workflow test {
 	base_path = '/net/seq/data2/projects/sabramov/ENCODE4/wasp-realigning/output'
-	
+	val(indiv_id), path(bed_files), path(bed_file_index)
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map{ row -> tuple(row.indiv_id, row.ag_id, 
-			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz"),
-			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
-			file("${base_path}/remapped/${row.ag_id}.passing.bam"),
-			file("${base_path}/remapped/${row.ag_id}.passing.bam.bai")) }
+		.map(row -> tuple(row.indiv_id,
+			file("${base_path}/count_reads/${row.ag_id}.bed.gz"),
+			file("${base_path}/count_reads/${row.ag_id}.bed.gz.tbi")))
 		.unique { it[1] }
 	
-	count_reads_files = count_reads(samples_aggregations)
-	merge_by_indiv(count_reads_files.groupTuple())
+	merge_by_indiv(samples_aggregations.groupTuple())
 	
 }
 
