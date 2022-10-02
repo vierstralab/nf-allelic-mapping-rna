@@ -375,18 +375,15 @@ workflow test {
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
 		.map(row -> tuple(
-			row.ag_id,
 			row.indiv_id,
-			file("${base_path}/count_reads/${row.ag_id}.bed.gz"),
-			file("${base_path}/count_reads/${row.ag_id}.bed.gz.tbi"),
-			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz"),
-			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz.tbi")
+			file("${base_path}/output/count_reads_fixed/${row.ag_id}.fixed.bed.gz"),
+			file("${base_path}/output/count_reads_fixed/${row.ag_id}.fixed.bed.gz.tbi"),
 			)
 		)
-		.unique { it[0] }.filter { it[4].exists() }
+		.unique { it[1] }.filter { it[1].exists() }
 	//inital_reads = count_reads_initial(count_reads_initial_input)
-	result_reads = combine_reads(count_reads)
-	//merge_by_indiv(result_reads.groupTuple())
+	//result_reads = combine_reads(count_reads)
+	merge_by_indiv(count_reads.groupTuple())
 	
 }
 
