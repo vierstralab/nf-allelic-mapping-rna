@@ -10,7 +10,7 @@ df_new = pd.read_table(sys.argv[1], header=None, names=header)
 df_old = pd.read_table(sys.argv[2], header=None, names=header)
 
 assert len(df_new.index) == len(df_old.index)
-result_df = df_new.merge(df_old, by=['chr', 'start', 'end', 'ID', 'ref', 'alt', 'maf',
+result_df = df_new.merge(df_old, on=['chr', 'start', 'end', 'ID', 'ref', 'alt', 'maf',
  'gt'])
 assert len(result_df.index) == len(df_new.index)
 
