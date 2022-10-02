@@ -415,7 +415,7 @@ workflow test2 {
 			file("${base_path}/count_reads/${row.ag_id}.bed.gz"),
 			file("${base_path}/count_reads/${row.ag_id}.bed.gz.tbi"),
 			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz"),
-			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz"),
+			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz.tbi"),
 			)
 		)
 		.unique { it[0] }
