@@ -300,7 +300,7 @@ process count_reads_initial {
 
 	script:
 	name = "${ag_number}.initial.bed.gz"
-	mem = Math.round(task.memory.toMega() / task.cpus * 0.95)
+	mem = Math.round(task.memory.toMega() / task.cpus * 0.85)
 	"""
 	python3 ${wasp_path}/mapping/rmdup_pe.py \
 		${bam_file} pe.reads.rmdup.bam
