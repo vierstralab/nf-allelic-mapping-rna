@@ -256,8 +256,6 @@ process remap_bamfiles {
 		-@${task.cpus} \
 		-o reads.passing.sorted.bam  \
 		reads.passing.bam 
-	
-	samtools index reads.passing.sorted.bam 
 
 	mv reads.passing.sorted.bam ${ag_number}.passing.bam
 	samtools index ${ag_number}.passing.bam
@@ -313,6 +311,8 @@ process count_reads_initial {
 		-o pe.reads.rmdup.sorted.bam \
 		-O bam \
 		pe.reads.rmdup.bam
+
+	samtools index pe.reads.rmdup.sorted.bam
 
 	python3 $moduleDir/bin/count_tags_pileup.py \
 		${filtered_sites_file} pe.reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${name}
