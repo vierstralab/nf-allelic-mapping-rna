@@ -256,6 +256,8 @@ process remap_bamfiles {
 		-@${task.cpus} \
 		-o reads.passing.sorted.bam  \
 		reads.passing.bam 
+	
+	samtools index reads.passing.sorted.bam 
 
 	mv reads.passing.sorted.bam ${ag_number}.passing.bam
 	samtools index ${ag_number}.passing.bam
