@@ -287,8 +287,10 @@ process count_reads {
 process count_reads_initial {
 	tag "${indiv_id}:${ag_number}"
 	// container "${params.container}"
+	scratch true
 	conda conda
 	publishDir params.outdir + "/count_reads_initial"
+	cpus 2
 
 	input:
 		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), val(bam_file)
@@ -298,9 +300,20 @@ process count_reads_initial {
 
 	script:
 	name = "${ag_number}.initial.bed.gz"
+	mem = Math.round(task.memory.toMega() / task.cpus * 0.95)
 	"""
+	python3 ${wasp_path}/mapping/rmdup_pe.py \
+		pe.bam pe.reads.rmdup.bam
+
+	samtools sort \
+		-m ${mem}M \
+		-@${task.cpus} \
+		-o pe.reads.rmdup.sorted.bam \
+		-O bam \
+		pe.reads.rmdup.bam
+
 	python3 $moduleDir/bin/count_tags_pileup.py \
-		${filtered_sites_file} ${bam_file} | sort-bed - | bgzip -c > ${name}
+		${filtered_sites_file} pe.reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${name}
 	
 	tabix -p bed ${name}
 	"""
@@ -376,14 +389,16 @@ workflow test {
 		.splitCsv(header:true, sep:'\t')
 		.map(row -> tuple(
 			row.indiv_id,
-			file("${base_path}/output/count_reads_fixed/${row.ag_id}.fixed.bed.gz"),
-			file("${base_path}/output/count_reads_fixed/${row.ag_id}.fixed.bed.gz.tbi"),
+			row.ag_id,
+			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz"),
+			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
+			row.bam_file
 			)
 		)
-		.unique { it[1] }.filter { it[1].exists() }
-	//inital_reads = count_reads_initial(count_reads_initial_input)
+		.unique { it[1] }
+	inital_reads = count_reads_initial(count_reads)
 	//result_reads = combine_reads(count_reads)
-	merge_by_indiv(count_reads.groupTuple())
+	//merge_by_indiv(count_reads.groupTuple())
 	
 }
 
