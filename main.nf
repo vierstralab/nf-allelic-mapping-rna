@@ -394,10 +394,13 @@ workflow test {
 			row.ag_id,
 			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz"),
 			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
+			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz"),
 			row.bam_file
 			)
 		)
 		.unique { it[1] }
+		.filter { !it[4].exists() }
+		.map(row -> tuple(row[0], row[1], row[2], row[3], row[5]))
 	inital_reads = count_reads_initial(count_reads)
 	//result_reads = combine_reads(count_reads)
 	//merge_by_indiv(count_reads.groupTuple())
