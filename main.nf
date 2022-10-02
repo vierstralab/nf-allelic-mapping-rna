@@ -303,7 +303,7 @@ process count_reads_initial {
 	mem = Math.round(task.memory.toMega() / task.cpus * 0.95)
 	"""
 	python3 ${wasp_path}/mapping/rmdup_pe.py \
-		pe.bam pe.reads.rmdup.bam
+		${bam_file} pe.reads.rmdup.bam
 
 	samtools sort \
 		-m ${mem}M \
