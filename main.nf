@@ -422,7 +422,7 @@ workflow test2 {
 		.filter { it[4].exists() }
 
 	result_reads = combine_reads(count_reads)
-
+	merge_by_indiv(count_reads.groupTuple())
 	// count_reads = Channel
 	// 	.fromPath(params.samples_file)
 	// 	.splitCsv(header:true, sep:'\t')
@@ -434,7 +434,7 @@ workflow test2 {
 	// 	)
 	// 	.unique { it[1] }
 	// 	.filter { it[1].exists() }
-	// merge_by_indiv(count_reads.groupTuple())
+	// 
 	
 }
 
