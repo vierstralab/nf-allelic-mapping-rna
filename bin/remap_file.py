@@ -18,7 +18,7 @@ result_df[['ref_reads', 'alt_reads', 'n_failed_genotyping', 'n_failed_bias']] = 
     result_df[['ref_reads_x', 'alt_reads_x', 'n_failed_genotyping_x', 'n_failed_bias_x']]
 
 result_df['original'] = result_df['original_y'] - result_df['failed_mapping_y']
-assert (result_df['original'] <= 0).sum() == 0
+assert (result_df['original'] < 0).sum() == 0
 
 result_df['failed_mapping'] = result_df['failed_mapping_x'] - result_df['failed_mapping_y']
 assert (result_df['failed_mapping'] <= 0).sum() == 0
