@@ -277,7 +277,7 @@ process count_reads {
 	script:
 	name = "${ag_number}.bed.gz"
 	"""
-	$moduleDir/bin/count_tags_pileup.py \
+	python3 $moduleDir/bin/count_tags_pileup.py \
 		${filtered_sites_file} ${bam_passing_file} | sort-bed - | bgzip -c > ${name}
 	
 	tabix -p bed ${name}
@@ -299,7 +299,7 @@ process count_reads_initial {
 	script:
 	name = "${ag_number}.initial.bed.gz"
 	"""
-	$moduleDir/bin/count_tags_pileup.py \
+	python3 $moduleDir/bin/count_tags_pileup.py \
 		${filtered_sites_file} ${bam_file} | sort-bed - | bgzip -c > ${name}
 	
 	tabix -p bed ${name}
@@ -321,7 +321,7 @@ process combine_reads {
 	script:
 	name = "${ag_number}.fixed.bed.gz"
 	"""
-	$moduleDir/bin/remap_file.py \
+	python3 $moduleDir/bin/remap_file.py \
 		${bed_file} ${bed_file_initial} | sort-bed - | bgzip -c > ${name}
 	
 	tabix -p bed ${name}
