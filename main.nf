@@ -360,6 +360,7 @@ process merge_by_indiv {
 	script:
 	name = "${indiv_id}.snps.bed"
 	"""
+	echo 'merging'
 	for file in ${bed_files}
 	do
 		python3 $moduleDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
