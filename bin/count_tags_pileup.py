@@ -44,9 +44,9 @@ class SNV:
         return cls.__class_fields
 
 def reads_to_dict(vars_file_path, bam_file_path, chrom):
-    args = {} if chrom is None else {'reference': chrom} 
+    kwargs = {} if chrom is None else {'reference': chrom} 
     with pysam.TabixFile(vars_file_path) as vars_file, pysam.AlignmentFile(bam_file_path, "rb") as sam_file: 
-        for line in vars_file.fetch(*args):
+        for line in vars_file.fetch(**kwargs):
             variant = SNV.from_str(line)
             if not variant.is_het:
                 continue
