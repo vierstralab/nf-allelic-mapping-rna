@@ -328,7 +328,7 @@ process combine_reads {
 	publishDir params.outdir + "/count_reads_fixed"
 
 	input:
-		tuple val(ag_number), val(indiv_id), path(bed_file), path(bed_file_index), path(bed_file_initial), path(bed_file_initial_index), val(hotspots_file)
+		tuple val(ag_number), val(indiv_id), path(bed_file), path(bed_file_index), path(bed_file_initial), path(bed_file_initial_index)
 
 	output:
 		tuple val(indiv_id), path(name), path("${name}.tbi")
@@ -337,7 +337,7 @@ process combine_reads {
 	name = "${ag_number}.fixed.bed.gz"
 	"""
 	python3 $moduleDir/bin/remap_file.py \
-		${bed_file} ${bed_file_initial} | sort-bed - | bedops -e 1 - ${hotspots_file} | bgzip -c > ${name}
+		${bed_file} ${bed_file_initial} | sort-bed - | bgzip -c > ${name}
 	
 	tabix -p bed ${name}
 	"""
@@ -360,7 +360,6 @@ process merge_by_indiv {
 	script:
 	name = "${indiv_id}.snps.bed"
 	"""
-	echo 'merging'
 	for file in ${bed_files}
 	do
 		python3 $moduleDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
