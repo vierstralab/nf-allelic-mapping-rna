@@ -24,7 +24,9 @@ if (result_df['original'] < 0).sum() != 0:
 
 result_df['failed_mapping'] = result_df['failed_mapping_x'] - result_df['failed_mapping_y']
 if (result_df['failed_mapping'] < 0).sum() != 0:
-    print(result_df[result_df['failed_mapping'] < 0], file=sys.stderr)
+    ind = result_df['failed_mapping'] < 0
+    print(result_df[ind], file=sys.stderr)
+    print(result_df[~ind], file=sys.stderr)
     raise AssertionError
 
 result_df[header].to_csv(sys.stdout, sep='\t', header=None, index=False)
