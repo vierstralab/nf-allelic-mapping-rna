@@ -27,6 +27,5 @@ ind = result_df['failed_mapping'] < 0
 if ind.sum() != 0:
     print(result_df[ind], file=sys.stderr)
     print(result_df[~ind], file=sys.stderr)
-    result_df = result_df[~ind]
 
 result_df[header].to_csv(sys.stdout, sep='\t', header=None, index=False)
