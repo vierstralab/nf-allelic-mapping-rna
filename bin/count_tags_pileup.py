@@ -66,6 +66,7 @@ def get_reads(variant, sam_file):
 		for pileupread in pileupcolumn.pileups:
 
 			if pileupread.is_del or pileupread.is_refskip:
+				print('refskip or del ', pileupread.alignment.query_name, file=sys.stderr)
 				continue
 
 			if pileupread.alignment.is_read1:
