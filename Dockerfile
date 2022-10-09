@@ -9,7 +9,7 @@ FROM build-base as build-conda
 COPY ./environment.yml /environment.yml
 RUN --mount=type=cache,target=/opt/conda/pkgs mamba env create -n babachi --file /environment.yml && echo 'conda activate babachi' >> ~/.bashrc
 SHELL ["conda", "run", "--no-capture-output", "-n", "babachi", "/bin/bash", "-c"]
-RUN git clone https://github.com/bmvdgeijn/WASP && cd WASP/snp2h5 && make
+RUN git clone https://github.com/wishabc/WASP && cd WASP/snp2h5 && make
 
 #######################
 # Final image

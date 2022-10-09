@@ -16,7 +16,6 @@ conda = '/home/sabramov/miniconda3/envs/babachi/envs/allelic-mapping'
 //wasp_path = '/opt/WASP'
 wasp_path = '/home/sabramov/projects/ENCODE4/WASP'
 
-
 process filter_variants {
 	tag "${indiv_id}"
 	conda conda
@@ -34,7 +33,7 @@ process filter_variants {
 	bcftools query \
 		-s ${indiv_id} \
 		-i'GT="alt"' \
-		-f'%CHROM\\t%POS0\\t%POS\\t%ID\\t%REF\\t%ALT\\t%INFO/MAF\\t[%GT\\t%GQ\\t%DP\\t%AD{0}\\t%AD{1}]\\n' \
+		-f'%CHROM\\t%POS0\\t%POS\\t%ID\\t%REF\\t%ALT\\t%INFO/TOPMED\\t[%GT\\t%GQ\\t%DP\\t%AD{0}\\t%AD{1}]\\n' \
 		${params.genotype_file} \
 	| awk -v OFS="\\t" \
 		-v min_GQ=${params.min_GQ} -v min_AD=${params.min_AD} -v min_DP=${params.min_DP}\
@@ -246,16 +245,19 @@ process remap_bamfiles {
 
 
 
-	## step 6 -- merge back reads
-
-	samtools merge -f reads.passing.bam \
-		\${remapped_merge_files}
+	## step 6 -- merge se and pe reads
+	if [ "`echo \${remapped_merge_files} | wc -w`" -ge 2 ]; then
+		samtools merge -f reads.passing.bam \
+			\${remapped_merge_files}
+	else
+		mv \${remapped_merge_files} reads.passing.bam
+	fi
 
 	samtools sort \
 		-m ${mem}M \
 		-@${task.cpus} \
 		-o reads.passing.sorted.bam  \
-		reads.passing.bam 
+		reads.passing.bam
 
 	mv reads.passing.sorted.bam ${ag_number}.passing.bam
 	samtools index ${ag_number}.passing.bam
@@ -424,18 +426,6 @@ workflow test2 {
 
 	result_reads = combine_reads(count_reads)
 	merge_by_indiv(result_reads.groupTuple())
-	// count_reads = Channel
-	// 	.fromPath(params.samples_file)
-	// 	.splitCsv(header:true, sep:'\t')
-	// 	.map(row -> tuple(
-	// 		row.indiv_id,
-	// 		file("${base_path}/output/count_reads_fixed/${row.ag_id}.fixed.bed.gz"),
-	// 		file("${base_path}/output/count_reads_fixed/${row.ag_id}.fixed.bed.gz.tbi"),
-	// 		)
-	// 	)
-	// 	.unique { it[1] }
-	// 	.filter { it[1].exists() }
-	// 
 	
 }
 
