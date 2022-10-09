@@ -15,7 +15,7 @@ def main(in_file):
             assert n_original_reads == n_alt + n_ref + n_failed_bias + n_failed_genotyping + n_failed_mapping
             if min(n_ref, n_alt) < 5:
                 continue
-            print('\t'.join(map(str, [*split_line[:6], n_ref, n_alt, name, variant.maf])))
+            print('\t'.join(map(str, [*split_line[:6], n_ref, n_alt, name, variant.maf, n_failed_mapping / n_original_reads])))
 
 
 if __name__ == '__main__':
