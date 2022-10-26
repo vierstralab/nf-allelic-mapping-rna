@@ -9,7 +9,7 @@ def set_key_for_group_tuple(ch) {
 
 def get_container(file_name) {
   parent = file(file_name).parent
-  container = "--bind ${file_name}"
+  container = "--bind ${parent}:${parent}"
 }
 
 wasp_path = '/opt/WASP'
@@ -17,7 +17,7 @@ wasp_path = '/opt/WASP'
 
 process make_iupac_genome {
 	container "${params.container}"
-	containerOptions "${get_container(params.genome_fasta_file)}" 
+	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.genotype_file)}" 
 	publishDir "${params.outdir}/alt_genome"
 	errorStrategy "terminate"
 	
