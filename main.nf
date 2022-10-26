@@ -18,6 +18,7 @@ wasp_path = '/opt/WASP'
 process make_iupac_genome {
 	container "${params.container}"
 	publishDir "${params.outdir}/alt_genome"
+	errorStrategy "terminate"
 	
 	output:
 		tuple path("${name}"), path("${name}.fai")
