@@ -9,7 +9,8 @@ def set_key_for_group_tuple(ch) {
 
 def get_container(file_name) {
   parent = file(file_name).parent
-  container = "--bind ${parent}:${parent}"
+  old_parent = file(file_name).toRealPath().parent
+  container = "--bind ${parent},${old_parent}"
 }
 
 wasp_path = '/opt/WASP'
