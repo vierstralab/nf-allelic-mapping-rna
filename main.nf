@@ -17,7 +17,7 @@ wasp_path = '/opt/WASP'
 
 process make_iupac_genome {
 	container "${params.container}"
-	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.genotype_file)}" 
+	containerOptions "${get_container(params.genome_fasta_file)}" 
 	publishDir "${params.outdir}/alt_genome"
 	errorStrategy "terminate"
 	
