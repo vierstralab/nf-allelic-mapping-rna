@@ -9,12 +9,26 @@ def set_key_for_group_tuple(ch) {
 
 def get_container(file_name) {
   parent = file(file_name).parent
-  container = "-v ${parent}:${parent}"
+  container = "--bind ${parent}:${parent}"
 }
 
-conda = '/home/sabramov/miniconda3/envs/babachi/envs/allelic-mapping'
-//wasp_path = '/opt/WASP'
-wasp_path = '/home/sabramov/projects/ENCODE4/WASP'
+wasp_path = '/opt/WASP'
+
+
+process make_iupac_genome {
+	container "${params.container}"
+	publishDir "${params.outdir}/alt_genome"
+	
+	output:
+		tuple path("${name}"), path("${name}.fai")
+
+	script:
+	name = "iupac.genome.fa"
+    """
+    python3 $moduleDir/bin/nonref_genome.py ${params.genome_fasta_file} ${name} ${params.genotype_file}
+    """
+}
+
 
 process filter_variants {
 	tag "${indiv_id}"
@@ -51,9 +65,8 @@ process filter_variants {
 
 process generate_h5_tables {
 	scratch true
-	// container "${params.container}"
-	// containerOptions "${get_container(params.genotype_file)} ${get_container(params.chrom_sizes)}"
-	conda conda
+	container "${params.container}"
+	containerOptions "${get_container(params.genotype_file)} ${get_container(params.chrom_sizes)}"
 
 	output:
 		path '*.h5'
@@ -81,9 +94,8 @@ process remap_bamfiles {
 	tag "${indiv_id}:${ag_number}"
 
 	scratch true
-	conda conda
-	// container "${params.container}"
-	// containerOptions "${get_container(params.genome_fasta)} ${get_container(params.nuclear_chroms)}"
+	container "${params.container}"
+	containerOptions "${get_container(params.genome_fasta)} ${get_container(params.nuclear_chroms)}"
 	publishDir params.outdir + "/remapped", pattern: "${ag_number}.passing.bam*"
 
 	cpus 2
@@ -325,8 +337,7 @@ process count_reads_initial {
 
 process combine_reads {
 	tag "${indiv_id}:${ag_number}"
-	// container "${params.container}"
-	conda conda
+	container "${params.container}"
 	publishDir params.outdir + "/count_reads_fixed"
 
 	input:
@@ -349,8 +360,7 @@ process combine_reads {
 process merge_by_indiv {
 	publishDir params.outdir + "/indiv_merged_files"
 	tag "${indiv_id}"
-	// container "${params.container}"
-	conda conda
+	container "${params.container}"
 	scratch true
 
 	input:
@@ -374,6 +384,7 @@ workflow waspRealigning {
 	take:
 		samples_aggregations
 	main:
+		iupac_genome = make_iupac_genome() 
 		sagr = samples_aggregations.map(it -> tuple(it[1], it[0], it[2]))
 		h5_tables = generate_h5_tables().collect()
 		snps_sites = filter_variants(sagr.map(it -> tuple(it[0], it[1])))
@@ -427,6 +438,10 @@ workflow test2 {
 	result_reads = combine_reads(count_reads)
 	merge_by_indiv(result_reads.groupTuple())
 	
+}
+
+workflow test3 {
+	make_iupac_genome()
 }
 
 workflow {
