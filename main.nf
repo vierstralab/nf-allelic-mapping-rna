@@ -95,7 +95,7 @@ process remap_bamfiles {
 
 	scratch true
 	container "${params.container}"
-	containerOptions "${get_container(params.genome_fasta)} ${get_container(params.nuclear_chroms)}"
+	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)}"
 	publishDir params.outdir + "/remapped", pattern: "${ag_number}.passing.bam*"
 
 	cpus 2
@@ -112,11 +112,11 @@ process remap_bamfiles {
 	"""
 	## split SE from PE reads
 	##
-	samtools view -O bam -h -F 1 --reference ${params.genome_fasta} ${bam_file} > se.bam
+	samtools view -O bam -h -F 1 --reference ${params.genome_fasta_file} ${bam_file} > se.bam
 	samtools index se.bam
 	n_se=\$(samtools view -c se.bam)
 
-	samtools view -O bam -h -f 1 --reference ${params.genome_fasta} ${bam_file} > pe.bam
+	samtools view -O bam -h -f 1 --reference ${params.genome_fasta_file} ${bam_file} > pe.bam
 	samtools index pe.bam
 	n_pe=\$(samtools view -c pe.bam)
 
@@ -156,15 +156,15 @@ process remap_bamfiles {
 
 		## step 3 -- re-align reads
 
-		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta} \
+		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
 			se.reads.rmdup.sorted.remap.fq.gz \
 		> se.reads.rmdup.sorted.remap.fq.sai
 
 		bwa samse -n 10 \
-			${params.genome_fasta} \
+			${params.genome_fasta_file} \
 			se.reads.rmdup.sorted.remap.fq.sai \
 			se.reads.rmdup.sorted.remap.fq.gz  \
-		| samtools view -b --reference ${params.genome_fasta} - \
+		| samtools view -b --reference ${params.genome_fasta_file} - \
 		> se.reads.remapped.bam
 
 		## step 4 -- mark QC flag
@@ -219,19 +219,19 @@ process remap_bamfiles {
 			pe.reads.rmdup.sorted.bam
 
 		## step 3 -- re-align reads
-		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta} \
+		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
 			pe.reads.rmdup.sorted.remap.fq1.gz \
 		> pe.reads.rmdup.sorted.remap.fq1.sai
 
-		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta} \
+		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
 			pe.reads.rmdup.sorted.remap.fq2.gz \
 		> pe.reads.rmdup.sorted.remap.fq2.sai
 
 		bwa sampe -n 10 -a 750 \
-			${params.genome_fasta} \
+			${params.genome_fasta_file} \
 			pe.reads.rmdup.sorted.remap.fq1.sai pe.reads.rmdup.sorted.remap.fq2.sai \
 			pe.reads.rmdup.sorted.remap.fq1.gz pe.reads.rmdup.sorted.remap.fq2.gz \
-		| samtools view -b --reference ${params.genome_fasta} - \
+		| samtools view -b --reference ${params.genome_fasta_file} - \
 		> pe.reads.remapped.bam
 
 		## step 4 -- mark QC flag
