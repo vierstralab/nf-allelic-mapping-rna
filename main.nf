@@ -20,7 +20,6 @@ process make_iupac_genome {
 	container "${params.container}"
 	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.genotype_file)}" 
 	publishDir "${params.outdir}/alt_genome"
-	errorStrategy "terminate"
 	
 	output:
 		tuple path("${name}"), path("${name}.fai")
