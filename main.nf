@@ -17,6 +17,7 @@ wasp_path = '/opt/WASP'
 
 process make_iupac_genome {
 	container "${params.container}"
+	containerOptions "${get_container(params.genotype_file)} ${get_container(params.genome_fasta_file)}" 
 	publishDir "${params.outdir}/alt_genome"
 	errorStrategy "terminate"
 	
@@ -33,7 +34,8 @@ process make_iupac_genome {
 
 process filter_variants {
 	tag "${indiv_id}"
-	conda conda
+	container "${params.container}"
+	containerOptions "${get_container(params.genotype_file)}" 
 	publishDir "${params.outdir}/bed_files"
 
 	input:
