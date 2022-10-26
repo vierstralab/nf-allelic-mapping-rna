@@ -9,7 +9,7 @@ def set_key_for_group_tuple(ch) {
 
 def get_container(file_name) {
   parent = file(file_name).parent
-  container = "--bind ${parent}:${parent}"
+  container = "--bind ${file_name}"
 }
 
 wasp_path = '/opt/WASP'
