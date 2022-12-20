@@ -418,9 +418,14 @@ workflow {
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.indiv_id, row.ag_id, row.bam_file)).unique { it[1] }
-	babachi_format_file = waspRealigning(set_key_for_group_tuple(samples_aggregations))
-		.map(it -> it[1])
+		.map(row -> tuple(row.indiv_id, row.ag_id, file(row.bam_file)))
+		.unique { it[1] }
+	indivs_count = samples_aggregations.map(it -> it[0]).unique().count()
+	println(
+		"""There are ${indivs_count} unique INDIV_IDs in the ${params.samples_file}.
+		Check that they correspond to IDs in ${params.genotype_file}"""
+	)
+	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 	add_snp_files_to_meta()
 	iupac_genome = make_iupac_genome() 
 }
