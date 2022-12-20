@@ -281,8 +281,7 @@ process remap_bamfiles {
 
 process count_reads {
 	tag "${indiv_id}:${ag_number}"
-	// container "${params.container}"
-	conda conda
+	container "${params.container}"
 	publishDir params.outdir + "/count_reads"
 
 	input:
@@ -296,72 +295,69 @@ process count_reads {
 	"""
 	python3 $moduleDir/bin/count_tags_pileup.py \
 		${filtered_sites_file} ${bam_passing_file} | sort-bed - | bgzip -c > ${name}
-	
-	tabix -p bed ${name}
 	"""
 }
 
-process count_reads_initial {
-	tag "${indiv_id}:${ag_number}"
-	// container "${params.container}"
-	scratch true
-	conda conda
-	publishDir params.outdir + "/count_reads_initial"
-	cpus 2
+// process count_reads_initial {
+// 	tag "${indiv_id}:${ag_number}"
+// 	container "${params.container}"
+// 	scratch true
+// 	publishDir params.outdir + "/count_reads_initial"
+// 	cpus 2
 
-	input:
-		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), val(bam_file)
+// 	input:
+// 		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), val(bam_file)
 
-	output:
-		tuple val(ag_number), path(name), path("${name}.tbi")
+// 	output:
+// 		tuple val(ag_number), path(name), path("${name}.tbi")
 
-	script:
-	name = "${ag_number}.initial.bed.gz"
-	mem = Math.round(task.memory.toMega() / task.cpus * 0.85)
-	"""
-	python3 ${wasp_path}/mapping/rmdup_pe.py \
-		${bam_file} pe.reads.rmdup.bam
+// 	script:
+// 	name = "${ag_number}.initial.bed.gz"
+// 	mem = Math.round(task.memory.toMega() / task.cpus * 0.85)
+// 	"""
+// 	python3 ${wasp_path}/mapping/rmdup_pe.py \
+// 		${bam_file} pe.reads.rmdup.bam
 
-	samtools sort \
-		-m ${mem}M \
-		-@${task.cpus} \
-		-o pe.reads.rmdup.sorted.bam \
-		-O bam \
-		pe.reads.rmdup.bam
+// 	samtools sort \
+// 		-m ${mem}M \
+// 		-@${task.cpus} \
+// 		-o pe.reads.rmdup.sorted.bam \
+// 		-O bam \
+// 		pe.reads.rmdup.bam
 
-	samtools index pe.reads.rmdup.sorted.bam
+// 	samtools index pe.reads.rmdup.sorted.bam
 
-	python3 $moduleDir/bin/count_tags_pileup.py \
-		${filtered_sites_file} pe.reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${name}
+// 	python3 $moduleDir/bin/count_tags_pileup.py \
+// 		${filtered_sites_file} pe.reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${name}
 	
-	tabix -p bed ${name}
-	"""
-}
+// 	tabix -p bed ${name}
+// 	"""
+// }
 
-process combine_reads {
-	tag "${indiv_id}:${ag_number}"
-	container "${params.container}"
-	publishDir params.outdir + "/count_reads_fixed"
+// process combine_reads {
+// 	tag "${indiv_id}:${ag_number}"
+// 	container "${params.container}"
+// 	publishDir params.outdir + "/count_reads_fixed"
 
-	input:
-		tuple val(ag_number), val(indiv_id), path(bed_file), path(bed_file_index), path(bed_file_initial), path(bed_file_initial_index)
+// 	input:
+// 		tuple val(ag_number), val(indiv_id), path(bed_file), path(bed_file_index), path(bed_file_initial), path(bed_file_initial_index)
 
-	output:
-		tuple val(indiv_id), path(name), path("${name}.tbi")
+// 	output:
+// 		tuple val(indiv_id), path(name), path("${name}.tbi")
 
-	script:
-	name = "${ag_number}.fixed.bed.gz"
-	"""
-	python3 $moduleDir/bin/remap_file.py \
-		${bed_file} ${bed_file_initial} | sort-bed - | bgzip -c > ${name}
+// 	script:
+// 	name = "${ag_number}.fixed.bed.gz"
+// 	"""
+// 	python3 $moduleDir/bin/remap_file.py \
+// 		${bed_file} ${bed_file_initial} | sort-bed - | bgzip -c > ${name}
 	
-	tabix -p bed ${name}
-	"""
-}
+// 	tabix -p bed ${name}
+// 	"""
+// }
 
 
 process merge_by_indiv {
-	publishDir params.outdir + "/indiv_merged_files"
+	publishDir "${params.outdir}/indiv_merged_files"
 	tag "${indiv_id}"
 	container "${params.container}"
 	scratch true
@@ -373,77 +369,48 @@ process merge_by_indiv {
 		tuple val(indiv_id), path(name)
 
 	script:
-	name = "${indiv_id}.snps.bed"
+	name = "${indiv_id}.snps.bed.gz"
 	"""
 	for file in ${bed_files}
 	do
 		python3 $moduleDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
 	done
-	sort -k 1,1 -k2,2n ${indiv_id}.snps > ${name}
+	sort -k 1,1 -k2,2n ${indiv_id}.snps | bgzip -c > ${name}
 	"""
 }
+
+process add_snp_files_to_meta {
+	publishDir "${params.outdir}"
+	tag "${indiv_id}"
+	container "${params.container}"
+	
+	output:
+		path name
+
+	script:
+	name = "meta+sample_ids.tsv"
+	"""
+	python3 $moduleDir/bin/add_meta.py ${params.samples_file} ${name} ${launchDir}/${params.outdir}/indiv_merged_files
+	"""
+}
+
 
 workflow waspRealigning {
 	take:
 		samples_aggregations
 	main:
-		iupac_genome = make_iupac_genome() 
 		sagr = samples_aggregations.map(it -> tuple(it[1], it[0], it[2]))
 		h5_tables = generate_h5_tables().collect()
 		snps_sites = filter_variants(sagr.map(it -> tuple(it[0], it[1])))
 		samples = sagr.join(snps_sites, by: 0)
 		count_reads_files = remap_bamfiles(samples, h5_tables) | count_reads
-		indiv_merged_count_files = count_reads_files.groupTuple()
-		merge_by_indiv(indiv_merged_count_files)
+		out = merge_by_indiv(count_reads_files.groupTuple())
 	emit:
-		merge_by_indiv.out
+		out
 }
 
-workflow test {
-	base_path = '/net/seq/data2/projects/sabramov/ENCODE4/wasp-realigning/output'
-	
-	count_reads = Channel
-		.fromPath(params.samples_file)
-		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(
-			row.indiv_id,
-			row.ag_id,
-			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz"),
-			file("${base_path}/bed_files/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
-			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz"),
-			row.bam_file
-			)
-		)
-		.unique { it[1] }
-		.filter { !it[4].exists() }
-		.map(row -> tuple(row[0], row[1], row[2], row[3], row[5]))
-	inital_reads = count_reads_initial(count_reads)
-}
 
-workflow test2 {
-	base_path = '/net/seq/data2/projects/sabramov/ENCODE4/wasp-realigning/output'
-	count_reads = Channel
-		.fromPath(params.samples_file)
-		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(
-			row.ag_id,
-			row.indiv_id,
-			file("${base_path}/count_reads/${row.ag_id}.bed.gz"),
-			file("${base_path}/count_reads/${row.ag_id}.bed.gz.tbi"),
-			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz"),
-			file("${base_path}/count_reads_initial/${row.ag_id}.initial.bed.gz.tbi"),
-			row.hotspots_file
-			)
-		)
-		.unique { it[0] }
-		.filter { it[4].exists() }
-
-	result_reads = combine_reads(count_reads)
-	merge_by_indiv(result_reads.groupTuple())
-	
-}
-
-workflow test3 {
+workflow altGenomeOnly {
 	make_iupac_genome()
 }
 
@@ -452,5 +419,8 @@ workflow {
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
 		.map(row -> tuple(row.indiv_id, row.ag_id, row.bam_file)).unique { it[1] }
-	waspRealigning(set_key_for_group_tuple(samples_aggregations))
+	babachi_format_file = waspRealigning(set_key_for_group_tuple(samples_aggregations))
+		.map(it -> it[1])
+	add_snp_files_to_meta()
+	iupac_genome = make_iupac_genome() 
 }
