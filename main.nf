@@ -410,7 +410,7 @@ workflow waspRealigning {
 }
 
 
-workflow altGenomeOnly {
+workflow makeAltGenome {
 	make_iupac_genome()
 }
 
@@ -426,6 +426,5 @@ workflow {
 		Check that they correspond to IDs in ${params.genotype_file}"""
 	)
 	waspRealigning(set_key_for_group_tuple(samples_aggregations))
-	add_snp_files_to_meta()
-	iupac_genome = make_iupac_genome() 
+	add_snp_files_to_meta() 
 }
