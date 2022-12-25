@@ -323,7 +323,6 @@ process merge_by_indiv {
 
 process add_snp_files_to_meta {
 	publishDir "${params.outdir}"
-	tag "${indiv_id}"
 	container "${params.container}"
 	
 	output:
