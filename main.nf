@@ -298,64 +298,6 @@ process count_reads {
 	"""
 }
 
-// process count_reads_initial {
-// 	tag "${indiv_id}:${ag_number}"
-// 	container "${params.container}"
-// 	scratch true
-// 	publishDir params.outdir + "/count_reads_initial"
-// 	cpus 2
-
-// 	input:
-// 		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), val(bam_file)
-
-// 	output:
-// 		tuple val(ag_number), path(name), path("${name}.tbi")
-
-// 	script:
-// 	name = "${ag_number}.initial.bed.gz"
-// 	mem = Math.round(task.memory.toMega() / task.cpus * 0.85)
-// 	"""
-// 	python3 ${wasp_path}/mapping/rmdup_pe.py \
-// 		${bam_file} pe.reads.rmdup.bam
-
-// 	samtools sort \
-// 		-m ${mem}M \
-// 		-@${task.cpus} \
-// 		-o pe.reads.rmdup.sorted.bam \
-// 		-O bam \
-// 		pe.reads.rmdup.bam
-
-// 	samtools index pe.reads.rmdup.sorted.bam
-
-// 	python3 $moduleDir/bin/count_tags_pileup.py \
-// 		${filtered_sites_file} pe.reads.rmdup.sorted.bam | sort-bed - | bgzip -c > ${name}
-	
-// 	tabix -p bed ${name}
-// 	"""
-// }
-
-// process combine_reads {
-// 	tag "${indiv_id}:${ag_number}"
-// 	container "${params.container}"
-// 	publishDir params.outdir + "/count_reads_fixed"
-
-// 	input:
-// 		tuple val(ag_number), val(indiv_id), path(bed_file), path(bed_file_index), path(bed_file_initial), path(bed_file_initial_index)
-
-// 	output:
-// 		tuple val(indiv_id), path(name), path("${name}.tbi")
-
-// 	script:
-// 	name = "${ag_number}.fixed.bed.gz"
-// 	"""
-// 	python3 $moduleDir/bin/remap_file.py \
-// 		${bed_file} ${bed_file_initial} | sort-bed - | bgzip -c > ${name}
-	
-// 	tabix -p bed ${name}
-// 	"""
-// }
-
-
 process merge_by_indiv {
 	publishDir "${params.outdir}/indiv_merged_files"
 	tag "${indiv_id}"
@@ -420,7 +362,7 @@ workflow {
 		.splitCsv(header:true, sep:'\t')
 		.map(row -> tuple(row.indiv_id, row.ag_id, file(row.bam_file)))
 		.unique { it[1] }
-	indivs_count = samples_aggregations.unique().count().view {
+	indivs_count = samples_aggregations.map(it -> it[0]).unique().count().view {
 		it -> """There are ${it} unique INDIV_IDs in the ${params.samples_file}.
 		Check that they correspond to IDs in ${params.genotype_file}"""
 	}
