@@ -288,7 +288,7 @@ process count_reads {
 		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path(bam_passing_file), path(bam_passing_file_index)
 
 	output:
-		tuple val(indiv_id), path(name), path("${name}.tbi")
+		tuple val(indiv_id), path(name)
 
 	script:
 	name = "${ag_number}.bed.gz"
