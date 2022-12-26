@@ -33,7 +33,7 @@ process make_iupac_genome {
 
 
 process filter_variants {
-	tag "${indiv_id}"
+	tag "${indiv_id}:${ag_id}"
 	container "${params.container}"
 	containerOptions "${get_container(params.genotype_file)}" 
 	publishDir "${params.outdir}/bed_files"
