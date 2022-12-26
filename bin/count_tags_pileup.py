@@ -4,6 +4,7 @@
 # --add filters/etc. as option
 import sys
 import logging
+import numpy as np
 
 from argparse import ArgumentParser
 import pysam
@@ -24,6 +25,8 @@ class SNV:
         self.end = int(self.end)
         if ',' in self.maf:
             self.maf = list(sorted(self.maf.split(','), reverse=True))[1]
+        elif self.maf == '.':
+            self.maf = np.nan
         else:
             self.maf = float(self.maf)
         self.is_het = sum(map(int, self.gt.replace('|','/').split('/'))) == 1
