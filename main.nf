@@ -324,7 +324,8 @@ process merge_by_indiv {
 process add_snp_files_to_meta {
 	publishDir "${params.outdir}"
 	container "${params.container}"
-	
+	containerOptions "${get_container(params.genotype_file)}"
+
 	output:
 		path name
 
