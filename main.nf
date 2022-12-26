@@ -104,7 +104,7 @@ process remap_bamfiles {
 	cpus 2
 
 	input:
-		tuple val(ag_number), val(indiv_id), val(bam_file), path(filtered_sites_file), path(filtered_sites_file_index)
+		tuple val(ag_number), val(indiv_id), path(bam_file), path(bam_index_file), path(filtered_sites_file), path(filtered_sites_file_index)
 		path h5_tables
 	
 	output:
@@ -360,7 +360,7 @@ workflow {
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.indiv_id, row.ag_id, file(row.bam_file)))
+		.map(row -> tuple(row.indiv_id, row.ag_id, file(row.bam_file), file("${row.bam_file}.crai")))
 		.unique { it[1] }
 	indivs_count = samples_aggregations.map(it -> it[0]).unique().count().view {
 		it -> """	There are ${it} unique INDIV_IDs in the ${params.samples_file}.
