@@ -22,7 +22,10 @@ class SNV:
             setattr(self, field_name, field_value)
         self.start = int(self.start)
         self.end = int(self.end)
-        self.maf = float(self.maf)
+        if ',' in self.maf:
+            self.maf = list(sorted(self.maf.split(','), reverse=True))[1]
+        else:
+            self.maf = float(self.maf)
         self.is_het = sum(map(int, self.gt.replace('|','/').split('/'))) == 1
         try: 
             self.n_original_reads = int(self.n_original_reads)
