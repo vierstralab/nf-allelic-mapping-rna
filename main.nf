@@ -341,7 +341,7 @@ workflow waspRealigning {
 	take:
 		samples_aggregations
 	main:
-		sagr = samples_aggregations.map(it -> tuple(it[1], it[0], it[2]))
+		sagr = samples_aggregations.map(it -> tuple(it[1], it[0], it[2], it[3]))
 		h5_tables = generate_h5_tables().collect()
 		snps_sites = filter_variants(sagr.map(it -> tuple(it[0], it[1])))
 		samples = sagr.join(snps_sites, by: 0)
