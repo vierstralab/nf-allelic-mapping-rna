@@ -237,8 +237,8 @@ def main(argv = sys.argv[1:]):
 	args = parse_options(argv)
 	if args.original_dedup_cover is not None:
 		counts_dict = {}
-		with open(args.original_dedup_cover) as f:
-			for line in f:
+		with pysam.TabixFile(args.original_dedup_cover) as f:
+			for line in f.fetch():
 				line_arr = line.strip('\n').split('\t')
 				counts = int(line_arr[-1])
 				key = '\t'.join(line_arr[:-1])
