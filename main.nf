@@ -298,7 +298,7 @@ process remap_bamfiles {
 	
 	python3 $moduleDir/bin/count_tags_pileup.py ${filtered_sites_file} \
 		 reads.original.sorted.rmdup.bam \
-		 --only_coverage > ${ag_id}.coverage.bed
+		 --only_coverage > ${ag_number}.coverage.bed
 	"""
 }
 
