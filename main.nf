@@ -107,7 +107,7 @@ process remap_bamfiles {
 		path h5_tables
 	
 	output:
-		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai"), path("${ag_id}.coverage.bed.gz"), path("${ag_number}.coverage.bed.gz.tbi")
+		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai"), path("${ag_number}.coverage.bed.gz"), path("${ag_number}.coverage.bed.gz.tbi")
 
 	script:
 	mem = Math.round(task.memory.toMega() / task.cpus * 0.95)
