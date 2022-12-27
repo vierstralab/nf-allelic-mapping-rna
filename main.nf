@@ -291,7 +291,7 @@ process remap_bamfiles {
 		-o reads.original.sorted.rmdup.bam  \
 		reads.rmdup.original.bam
 	else
-		mv \${rmdup_original_files} reads.rmdup.original.bam
+		mv \${rmdup_original_files} reads.original.sorted.rmdup.bam
 	fi
 
 	samtools index reads.original.sorted.rmdup.bam
