@@ -5,7 +5,7 @@
 import sys
 import logging
 import numpy as np
-
+import pandas as pd
 from argparse import ArgumentParser
 import pysam
 
@@ -98,6 +98,13 @@ def parse_options(args):
 
 	parser.add_argument("remapped_bam_file", metavar = "remapped_bam_file", type = str, 
 						help = "Path to BAM-format tag sequence file")
+	
+	parser.add_argument("--original_dedup_cover", metavar = "counts from original deduped bam file",
+						type = str, default=None,
+						help = "Path to bed format file with total read counts")
+	
+	parser.add_argument('--only_coverage', type=bool, default=False, action="store_true",
+						help="Specify to emit only coverage for the SNPs")
 
 	return parser.parse_args(args)
 
@@ -227,19 +234,33 @@ def check_reads(reads_1, reads_2, unique_reads, ref, alt):
 
 	
 def main(argv = sys.argv[1:]):
-
+	if args.original_dedup_cover is not None:
+		counts_dict = {}
+		with open(args.original_dedup_cover) as f:
+			for line in f:
+				line_arr = line.strip('\n').split('\t')
+				counts = int(line_arr[-1])
+				key = '\t'.join(line_arr[:-1])
+				counts_dict[key] = counts
+	else:
+		counts_dict = None
 	args = parse_options(argv)
 	for variant, reads_1, reads_2, read_pairs in reads_to_dict(args.var_file, args.remapped_bam_file, args.chrom):
 		n_remapped_reads = len(read_pairs)
-		n_ref, n_alt, n_failed_bias, n_failed_genotyping = check_reads(reads_1, reads_2,
-															read_pairs, variant.ref, variant.alt)
-		variant_str = str(variant)
-		n_original_reads = variant.n_original_reads
-		
-		n_failed_mapping = n_original_reads - n_remapped_reads
+		if args.only_coverage:
+			print(variant_str, n_original_reads, sep='\t')
+		else:
+			n_ref, n_alt, n_failed_bias, n_failed_genotyping = check_reads(reads_1, reads_2,
+																read_pairs, variant.ref, variant.alt)
+			variant_str = str(variant)
+			if counts_dict is None:
+				n_original_reads = variant.n_original_reads
+			else:
+				n_original_reads = counts_dict[variant_str]
+			n_failed_mapping = n_original_reads - n_remapped_reads
 
-		print(variant_str, n_ref, n_alt, n_original_reads, n_failed_mapping,
-		 n_failed_genotyping, n_failed_bias, sep='\t')
+			print(variant_str, n_ref, n_alt, n_original_reads, n_failed_mapping,
+			n_failed_genotyping, n_failed_bias, sep='\t')
     
 if __name__ == "__main__":
     main()
