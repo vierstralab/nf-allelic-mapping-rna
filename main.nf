@@ -334,13 +334,13 @@ process merge_by_indiv {
 		tuple val(indiv_id), path(name)
 
 	script:
-	name = "${indiv_id}.snps.bed.gz"
+	name = "${indiv_id}.snps.bed"
 	"""
 	for file in ${bed_files}
 	do
 		python3 $moduleDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
 	done
-	sort -k 1,1 -k2,2n ${indiv_id}.snps | bgzip -c > ${name}
+	sort -k 1,1 -k2,2n ${indiv_id}.snps > ${name}
 	"""
 }
 
