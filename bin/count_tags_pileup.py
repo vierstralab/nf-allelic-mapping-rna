@@ -247,12 +247,13 @@ def main(argv = sys.argv[1:]):
 		counts_dict = None
 	for variant, reads_1, reads_2, read_pairs in reads_to_dict(args.var_file, args.remapped_bam_file, args.chrom):
 		n_remapped_reads = len(read_pairs)
+		variant_str = str(variant)
 		if args.only_coverage:
 			print(variant_str, n_original_reads, sep='\t')
 		else:
 			n_ref, n_alt, n_failed_bias, n_failed_genotyping = check_reads(reads_1, reads_2,
 																read_pairs, variant.ref, variant.alt)
-			variant_str = str(variant)
+			
 			if counts_dict is None:
 				n_original_reads = variant.n_original_reads
 			else:
