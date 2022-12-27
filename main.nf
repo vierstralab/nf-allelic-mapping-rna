@@ -98,8 +98,6 @@ process remap_bamfiles {
 	scratch "$workDir"
 	container "${params.container}"
 	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)}"
-	publishDir params.outdir + "/remapped" //, pattern: "${ag_number}.passing.bam*"
-	errorStrategy 'terminate'
 	cpus 2
 
 	input:
