@@ -249,7 +249,7 @@ def main(argv = sys.argv[1:]):
 		n_remapped_reads = len(read_pairs)
 		variant_str = str(variant)
 		if args.only_coverage:
-			print(variant_str, n_original_reads, sep='\t')
+			print(variant_str, n_remapped_reads, sep='\t')
 		else:
 			n_ref, n_alt, n_failed_bias, n_failed_genotyping = check_reads(reads_1, reads_2,
 																read_pairs, variant.ref, variant.alt)
