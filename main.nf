@@ -95,7 +95,7 @@ process generate_h5_tables {
 
 process remap_bamfiles {
 	tag "${indiv_id}:${ag_number}"
-	scratch true
+	scratch "$launchDir"
 	container "${params.container}"
 	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)}"
 	publishDir params.outdir + "/remapped" //, pattern: "${ag_number}.passing.bam*"
@@ -107,7 +107,7 @@ process remap_bamfiles {
 		path h5_tables
 	
 	output:
-		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai"), path("${ag_id}.coverage.bed")
+		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai"), path("${ag_id}.coverage.bed.gz"), path("${ag_number}.coverage.bed.gz.tbi")
 
 	script:
 	mem = Math.round(task.memory.toMega() / task.cpus * 0.95)
@@ -298,7 +298,8 @@ process remap_bamfiles {
 
 	python3 $moduleDir/bin/count_tags_pileup.py ${filtered_sites_file} \
 		 reads.original.sorted.rmdup.bam \
-		 --only_coverage > ${ag_number}.coverage.bed
+		 --only_coverage | bgzip -c > ${ag_number}.coverage.bed.gz
+	tabix ${rmdup_counts}
 	"""
 }
 
