@@ -234,6 +234,7 @@ def check_reads(reads_1, reads_2, unique_reads, ref, alt):
 
 	
 def main(argv = sys.argv[1:]):
+	args = parse_options(argv)
 	if args.original_dedup_cover is not None:
 		counts_dict = {}
 		with open(args.original_dedup_cover) as f:
@@ -244,7 +245,6 @@ def main(argv = sys.argv[1:]):
 				counts_dict[key] = counts
 	else:
 		counts_dict = None
-	args = parse_options(argv)
 	for variant, reads_1, reads_2, read_pairs in reads_to_dict(args.var_file, args.remapped_bam_file, args.chrom):
 		n_remapped_reads = len(read_pairs)
 		if args.only_coverage:
