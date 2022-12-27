@@ -386,8 +386,7 @@ workflow {
 		.map(row -> tuple(row.indiv_id, row.ag_id, file(row.bam_file), file("${row.bam_file}.crai")))
 		.unique { it[1] }
 	indivs_count = samples_aggregations.map(it -> it[0]).unique().count().view {
-		it -> """	There are ${it} unique INDIV_IDs in the ${params.samples_file}.
-Please, check that they correspond to IDs in ${params.genotype_file}"""
+		it -> """There are ${it} unique INDIV_IDs in the ${params.samples_file}. Please, check that they correspond to IDs in ${params.genotype_file}"""
 	}
 	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 	add_snp_files_to_meta() 
