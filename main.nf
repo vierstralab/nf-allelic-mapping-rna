@@ -269,7 +269,7 @@ process remap_bamfiles {
 		samtools merge -f reads.passing.bam \
 			\${remapped_merge_files}
 	else
-		mv \${remapped_merge_files} ${ag_number}.passing.bam
+		mv \${remapped_merge_files} reads.passing.bam
 	fi
 		
 	samtools sort \
