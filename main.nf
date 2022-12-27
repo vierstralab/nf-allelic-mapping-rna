@@ -299,7 +299,7 @@ process remap_bamfiles {
 	python3 $moduleDir/bin/count_tags_pileup.py ${filtered_sites_file} \
 		 reads.original.sorted.rmdup.bam \
 		 --only_coverage | bgzip -c > ${ag_number}.coverage.bed.gz
-	tabix ${rmdup_counts}
+	tabix ${ag_number}.coverage.bed.gz
 	"""
 }
 
