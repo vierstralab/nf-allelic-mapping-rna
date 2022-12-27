@@ -36,7 +36,7 @@ process filter_variants {
 	tag "${indiv_id}:${ag_id}"
 	container "${params.container}"
 	containerOptions "${get_container(params.genotype_file)}" 
-	publishDir "${params.outdir}/bed_files"
+	publishDir "${params.outdir}/target_variants"
 
 	input:
 		tuple val(ag_id), val(indiv_id)
@@ -95,12 +95,11 @@ process generate_h5_tables {
 
 process remap_bamfiles {
 	tag "${indiv_id}:${ag_number}"
-
 	scratch true
 	container "${params.container}"
 	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)}"
-	publishDir params.outdir + "/remapped", pattern: "${ag_number}.passing.bam*"
-
+	publishDir params.outdir + "/remapped" //, pattern: "${ag_number}.passing.bam*"
+	errorStrategy 'terminate'
 	cpus 2
 
 	input:
@@ -144,7 +143,7 @@ process remap_bamfiles {
 			-O bam \
 			se.reads.rmdup.bam
 		
-		rmdup_original_files="\${rmdup_original_files} se.reads.rmdup.bam"
+		rmdup_original_files="\${rmdup_original_files} se.reads.rmdup.sorted.bam"
 
 		## step 2 -- get reads overlapping a SNV
 		### Creates 3 following files:
@@ -212,7 +211,7 @@ process remap_bamfiles {
 			-O bam \
 			pe.reads.rmdup.bam
 		
-		rmdup_original_files="\${rmdup_original_files} pe.reads.rmdup.bam"
+		rmdup_original_files="\${rmdup_original_files} pe.reads.rmdup.sorted.bam"
 
 		## step 2 -- get reads overlapping a SNV
 		##
@@ -270,32 +269,33 @@ process remap_bamfiles {
 		samtools merge -f reads.passing.bam \
 			\${remapped_merge_files}
 	else
-		mv \${remapped_merge_files} reads.passing.bam
+		mv \${remapped_merge_files} ${ag_number}.passing.bam
 	fi
-
+		
 	samtools sort \
 		-m ${mem}M \
 		-@${task.cpus} \
 		-o ${ag_number}.passing.bam  \
 		reads.passing.bam
+	samtools index ${ag_number}.passing.bam
+
 
 	###########################
-
-
 	if [ "`echo \${rmdup_original_files} | wc -w`" -ge 2 ]; then
 		samtools merge -f rmdup_original_files \
 			\${rmdup_original_files}
-	else
-		mv \${rmdup_original_files} reads.rmdup.original.bam
-	fi
 
-	samtools sort \
+		samtools sort \
 		-m ${mem}M \
 		-@${task.cpus} \
 		-o reads.original.sorted.rmdup.bam  \
 		reads.rmdup.original.bam
+	else
+		mv \${rmdup_original_files} reads.rmdup.original.bam
+	fi
+
 	samtools index reads.original.sorted.rmdup.bam
-	
+
 	python3 $moduleDir/bin/count_tags_pileup.py ${filtered_sites_file} \
 		 reads.original.sorted.rmdup.bam \
 		 --only_coverage > ${ag_number}.coverage.bed
