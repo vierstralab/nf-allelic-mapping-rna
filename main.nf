@@ -108,7 +108,7 @@ process remap_bamfiles {
 		path h5_tables
 	
 	output:
-		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai")
+		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai"), path("${ag_id}.coverage.bed")
 
 	script:
 	mem = Math.round(task.memory.toMega() / task.cpus * 0.95)
@@ -124,6 +124,7 @@ process remap_bamfiles {
 	n_pe=\$(samtools view -c pe.bam)
 
 	remapped_merge_files=""
+	rmdup_original_files=""
 
 	## single-ended
 	if [[ \${n_se} -gt 0 ]]; then
@@ -142,6 +143,8 @@ process remap_bamfiles {
 			-o se.reads.rmdup.sorted.bam \
 			-O bam \
 			se.reads.rmdup.bam
+		
+		rmdup_original_files="\${rmdup_original_files} se.reads.rmdup.bam"
 
 		## step 2 -- get reads overlapping a SNV
 		### Creates 3 following files:
@@ -208,6 +211,8 @@ process remap_bamfiles {
 			-o pe.reads.rmdup.sorted.bam \
 			-O bam \
 			pe.reads.rmdup.bam
+		
+		rmdup_original_files="\${rmdup_original_files} pe.reads.rmdup.bam"
 
 		## step 2 -- get reads overlapping a SNV
 		##
@@ -271,11 +276,29 @@ process remap_bamfiles {
 	samtools sort \
 		-m ${mem}M \
 		-@${task.cpus} \
-		-o reads.passing.sorted.bam  \
+		-o ${ag_number}.passing.bam  \
 		reads.passing.bam
 
-	mv reads.passing.sorted.bam ${ag_number}.passing.bam
-	samtools index ${ag_number}.passing.bam
+	###########################
+
+
+	if [ "`echo \${rmdup_original_files} | wc -w`" -ge 2 ]; then
+		samtools merge -f rmdup_original_files \
+			\${rmdup_original_files}
+	else
+		mv \${rmdup_original_files} reads.rmdup.original.bam
+	fi
+
+	samtools sort \
+		-m ${mem}M \
+		-@${task.cpus} \
+		-o reads.original.sorted.rmdup.bam  \
+		reads.rmdup.original.bam
+	samtools index reads.original.sorted.rmdup.bam
+	
+	python3 $moduleDir/bin/count_tags_pileup.py ${filtered_sites_file} \
+		 reads.original.sorted.rmdup.bam \
+		 --only_coverage > ${ag_id}.coverage.bed
 	"""
 }
 
@@ -285,7 +308,7 @@ process count_reads {
 	publishDir params.outdir + "/count_reads"
 
 	input:
-		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path(bam_passing_file), path(bam_passing_file_index)
+		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path(bam_passing_file), path(bam_passing_file_index), path(rmdup_counts)
 
 	output:
 		tuple val(indiv_id), path(name), path("${name}.tbi")
@@ -294,7 +317,7 @@ process count_reads {
 	name = "${ag_number}.bed.gz"
 	"""
 	python3 $moduleDir/bin/count_tags_pileup.py \
-		${filtered_sites_file} ${bam_passing_file} | sort-bed - | bgzip -c > ${name}
+		${filtered_sites_file} ${bam_passing_file} --original_dedup_cover ${rmdup_counts} | sort-bed - | bgzip -c > ${name}
 	tabix ${name}
 	"""
 }
