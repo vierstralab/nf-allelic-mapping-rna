@@ -95,7 +95,7 @@ process generate_h5_tables {
 
 process remap_bamfiles {
 	tag "${indiv_id}:${ag_number}"
-	scratch "$launchDir"
+	scratch "$workDir"
 	container "${params.container}"
 	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)}"
 	publishDir params.outdir + "/remapped" //, pattern: "${ag_number}.passing.bam*"

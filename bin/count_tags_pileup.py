@@ -103,7 +103,7 @@ def parse_options(args):
 						type = str, default=None,
 						help = "Path to bed format file with total read counts")
 	
-	parser.add_argument('--only_coverage', type=bool, default=False, action="store_true",
+	parser.add_argument('--only_coverage', default=False, action="store_true",
 						help="Specify to emit only coverage for the SNPs")
 
 	return parser.parse_args(args)
