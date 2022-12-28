@@ -11,24 +11,27 @@ import pysam
 
 logging.basicConfig(stream = sys.stderr, level='WARNING')
 
+def transform_af(value):
+	if value == '.':
+		return None
+	else:
+		return float(value)
+
 
 class SNV:
     """chrom, start, end, id, ref, alt, maf, gt
         GT encoded as either 0/1 or with pipe 0|0
     """
     
-    __class_fields = ['contig', 'start', 'end', 'id', 'ref', 'alt', 'maf', 'gt', 'gq', 'n_original_reads']
+    __class_fields = ['contig', 'start', 'end', 'id', 'ref', 'alt', 'aaf', 'raf', 'gt', 'gq', 'n_original_reads']
     def __init__(self, fields):
         for field_name, field_value in zip(self.__class_fields, fields):
             setattr(self, field_name, field_value)
         self.start = int(self.start)
         self.end = int(self.end)
-        if ',' in self.maf:
-            self.maf = list(sorted(self.maf.split(','), reverse=True))[1]
-        elif self.maf == '.':
-            self.maf = np.nan
-        else:
-            self.maf = float(self.maf)
+        self.aaf = transform_af(self.aaf)
+        self.raf = transform_af(self.raf)
+	
         self.is_het = sum(map(int, self.gt.replace('|','/').split('/'))) == 1
         try: 
             self.n_original_reads = int(self.n_original_reads)
