@@ -339,8 +339,8 @@ process merge_by_indiv {
 	for file in ${bed_files}
 	do
 		zcat \$file | sed 's/None/./g' | bgzip -c > tmp.bed.gz
-		cp \${file}.tbi tmp.bed.gz.tbi
-		python3 $moduleDir/bin/tags_to_babachi_format.py tmp.bed.gz >> ${indiv_id}.snps
+		mv tmp.bed.gz \$file
+		python3 $moduleDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
 	done
 	echo "#chr\tstart\tend\tID\tref\talt\tref_counts\talt_counts\tsample_id\tAAF\tRAF\tFMR" > ${name}
 	sort -k 1,1 -k2,2n ${indiv_id}.snps >> ${name}
