@@ -282,7 +282,7 @@ process remap_bamfiles {
 
 	###########################
 	if [ "`echo \${rmdup_original_files} | wc -w`" -ge 2 ]; then
-		samtools merge -f rmdup_original_files \
+		samtools merge -f reads.rmdup.original.bam \
 			\${rmdup_original_files}
 
 		samtools sort \
@@ -379,6 +379,21 @@ workflow waspRealigning {
 		out
 }
 
+workflow realignOnly {
+	fpath = "/net/seq/data2/projects/sabramov/ENCODE4/dnase-wasp/output/remapped_files"
+	samples_aggregations = Channel
+		.fromPath(params.samples_file)
+		.splitCsv(header:true, sep:'\t')
+		.map(row -> tuple(row.indiv_id, row.ag_id, file(row.bam_file), file("${row.bam_file}.crai"), file("${fpath}/${row.ag_id}.coverage.bed.gz")))
+		.unique { it[1] }
+		.filter { !it[4].exists() }
+		
+	sagr = samples_aggregations.map(it -> tuple(it[1], it[0], it[2], it[3]))
+	h5_tables = generate_h5_tables().collect()
+	snps_sites = filter_variants(sagr.map(it -> tuple(it[0], it[1])))
+	samples = sagr.join(snps_sites, by: 0)
+	count_reads_files = remap_bamfiles(samples, h5_tables)
+}
 
 workflow makeAltGenome {
 	make_iupac_genome()
