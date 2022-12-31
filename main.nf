@@ -68,6 +68,7 @@ process filter_variants {
 
 process generate_h5_tables {
 	scratch true
+	publishDir "${params.outdir}/h5"
 	container "${params.container}"
 	containerOptions "${get_container(params.genotype_file)} ${get_container(params.chrom_sizes)}"
 
