@@ -99,6 +99,8 @@ process remap_bamfiles {
 	container "${params.container}"
 	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)}"
 	cpus 2
+	publishDir "${params.outdir}/remapped_files"
+	errorStrategy 'ignore'
 
 	input:
 		tuple val(ag_number), val(indiv_id), path(bam_file), path(bam_index_file), path(filtered_sites_file), path(filtered_sites_file_index)
@@ -280,7 +282,7 @@ process remap_bamfiles {
 
 	###########################
 	if [ "`echo \${rmdup_original_files} | wc -w`" -ge 2 ]; then
-		samtools merge -f reads.rmdup.original.bam \
+		samtools merge -f rmdup_original_files \
 			\${rmdup_original_files}
 
 		samtools sort \
