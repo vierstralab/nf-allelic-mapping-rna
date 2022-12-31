@@ -338,7 +338,8 @@ process merge_by_indiv {
 	"""
 	for file in ${bed_files}
 	do
-		python3 $moduleDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
+		cat \$file | sed 's/None/./g' > tmp.bed
+		python3 $moduleDir/bin/tags_to_babachi_format.py tmp.bed >> ${indiv_id}.snps
 	done
 	echo "#chr\tstart\tend\tID\tref\talt\tref_counts\talt_counts\tsample_id\tAAF\tRAF\tFMR" > ${name}
 	sort -k 1,1 -k2,2n ${indiv_id}.snps >> ${name}
