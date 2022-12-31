@@ -280,7 +280,7 @@ process remap_bamfiles {
 
 	###########################
 	if [ "`echo \${rmdup_original_files} | wc -w`" -ge 2 ]; then
-		samtools merge -f rmdup_original_files \
+		samtools merge -f reads.rmdup.original.bam \
 			\${rmdup_original_files}
 
 		samtools sort \
