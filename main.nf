@@ -1,6 +1,108 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl = 2
 
+// ADD more aligners in the process below if needed. See example in the script body
+process align_reads {
+	container "${params.container}"
+	// All external files (passed as params) should be wrapped 
+	// in "get_container" function and written in continer option
+	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)} ${params.aligner == 'bowtie' ? get_container(params.bowtie_idx) : ''}"
+	scratch true
+	tag "${ag_id}:${r_tag}"
+	// fastq1 is the same as fastq2 if r_tag == "se"
+	input:
+		tuple val(ag_number), val(r_tag), path(fastq1), path(fastq2)
+		// "ag_number" - ID of initial bam file that was splitted
+		// into pe and se reads.
+
+		// "r_tag" - indicates which reads were extracted from the bam file.
+		// Can be either "se" or "pe"
+
+		// fastq1, fastq2 reads from the bam file. 
+		// Use any of them for se reads aligning
+
+	output:
+		tuple val(ag_number), val(r_tag), path(name)
+
+	script:
+	name = "${ag_id}.${r_tag}.realigned.bam"
+	switch (params.aligner) {
+		case 'bwa': {
+			// PE reads alignment
+			if (r_tag == 'pe') {
+				"""
+				bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
+					${fastq1} \
+				> pe.reads.rmdup.sorted.remap.fq1.sai
+
+				bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
+					${fastq2} \
+				> pe.reads.rmdup.sorted.remap.fq2.sai
+
+				bwa sampe -n 10 -a 750 \
+					${params.genome_fasta_file} \
+					pe.reads.rmdup.sorted.remap.fq1.sai pe.reads.rmdup.sorted.remap.fq2.sai \
+					pe.reads.rmdup.sorted.remap.fq1.gz pe.reads.rmdup.sorted.remap.fq2.gz \
+					| samtools view -b --reference ${params.genome_fasta_file} - \
+					> pe.reads.remapped.bam
+
+				python3 $moduleDir/bin/filter_reads.py \
+					pe.reads.remapped.bam \
+					pe.reads.remapped.marked.bam \
+					${params.nuclear_chroms}
+
+				samtools sort \
+					-@${task.cpus} -l0 pe.reads.remapped.marked.bam \
+					| samtools view -b -F 512 - \
+					> ${name}
+				""" 
+			} else {
+				// SE reads alignment
+				"""
+				bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
+					${fastq1} > se.reads.rmdup.sorted.remap.fq.sai
+
+				bwa samse -n 10 \
+					${params.genome_fasta_file} \
+					se.reads.rmdup.sorted.remap.fq.sai \
+					se.reads.rmdup.sorted.remap.fq.gz  \
+					| samtools view -b --reference ${params.genome_fasta_file} - \
+					> se.reads.remapped.bam
+
+				python3 $moduleDir/bin/filter_reads.py \
+					se.reads.remapped.bam \
+					se.reads.remapped.marked.bam \
+					${params.nuclear_chroms}
+				samtools sort \
+						-@${task.cpus} -l0 se.reads.remapped.marked.bam \
+					| samtools view -b -F 512 - \
+					> ${name}
+				"""
+			}
+		}
+		case "bowtie-chip": {
+			if (r_tag == 'pe') {
+				"""
+				bowtie2 -X2000 --mm -x ${params.bowtie_idx} --threads ${task.cpus} \
+   		 			-1 ${fastq1} -2 ${fastq2} \
+		 			| samtools view -Su /dev/stdin | samtools sort - -o ${name}
+				"""
+			} else {
+				"""
+				bowtie2 --mm -x ${params.bowtie_idx} --threads ${task.cpus} 
+					-U <(zcat -f ${fastq1})
+					| samtools view -Su /dev/stdin | samtools sort - -o ${name}
+				"""
+			}
+		}
+		default:
+		error "Aligning with ${params.aligner} is not implemented. You can add it in 'align_reads' process"
+	}
+}
+
+// DO not edit below
+wasp_path = '/opt/WASP'
+
 def set_key_for_group_tuple(ch) {
   ch.groupTuple()
   .map{ it -> tuple(groupKey(it[0], it[1].size()), *it[1..(it.size()-1)]) }
@@ -12,8 +114,6 @@ def get_container(file_name) {
   old_parent = file(file_name).toRealPath().parent
   container = "--bind ${parent},${old_parent}"
 }
-
-wasp_path = '/opt/WASP'
 
 
 process make_iupac_genome {
@@ -94,213 +194,171 @@ process generate_h5_tables {
 	"""
 }
 
-process remap_bamfiles {
+process split_reads {
 	tag "${indiv_id}:${ag_number}"
-	scratch "$workDir"
 	container "${params.container}"
-	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)}"
-	cpus 2
-	publishDir "${params.outdir}/remapped_files"
-	errorStrategy 'ignore'
+	containerOptions "${get_container(params.genome_fasta_file)}"
 
 	input:
-		tuple val(ag_number), val(indiv_id), path(bam_file), path(bam_index_file), path(filtered_sites_file), path(filtered_sites_file_index)
-		path h5_tables
-	
+		tuple val(ag_number), val(indiv_id), path(bam_file), path(bam_index_file), val(r_tag)
+
 	output:
-		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path("${ag_number}.passing.bam"), path("${ag_number}.passing.bam.bai"), path("${ag_number}.coverage.bed.gz"), path("${ag_number}.coverage.bed.gz.tbi")
+		tuple val(ag_number), val(indiv_id), val(r_tag), path(name), path("${name}.bai"), env(n_counts)
 
 	script:
-	mem = Math.round(task.memory.toMega() / task.cpus * 0.95)
+	name = "${ag_number}.${r_tag}.bam"
+	params = r_tag == 'pe' ? "-f 1" : "-F 1"
 	"""
-	## split SE from PE reads
-	##
-	samtools view -O bam -h -F 1 --reference ${params.genome_fasta_file} ${bam_file} > se.bam
-	samtools index se.bam
-	n_se=\$(samtools view -c se.bam)
+	samtools view -O bam -h ${params} --reference ${params.genome_fasta_file} ${bam_file} > align.bam
+	samtools index align.bam
+	n_counts=\$(samtools view -c align.bam)
+	"""
+}
 
-	samtools view -O bam -h -f 1 --reference ${params.genome_fasta_file} ${bam_file} > pe.bam
-	samtools index pe.bam
-	n_pe=\$(samtools view -c pe.bam)
+process extract_remap_reads {
+	tag "${ag_number}:${r_tag}"
+	container "${params.container}"
+	cpus 2
 
-	remapped_merge_files=""
-	rmdup_original_files=""
+	input:
+		tuple val(ag_number), val(indiv_id), val(r_tag), path(bam_file), path(bam_file_index), env(n_counts)
+		path h5_tables
 
-	## single-ended
-	if [[ \${n_se} -gt 0 ]]; then
-		
-		# an ugly hack to deal with repeated read names on legacy SOLEXA GA1 data
-		$moduleDir/bin/hash_se_reads.py se.bam se.hashed.bam
+	output:
+		tuple val(ag_number), val(r_tag), path(name), path("${name}.bai"), emit: bamfile
+		tuple val(ag_number), val(r_tag), path(fasta1), path(fasta2), emit: fastq
+	
+	script:
+	name = "${ag_number}.${r_tag}.rmdup.bam"
+	fasta1 = "${name.baseName}.remap.fq1.gz"
+	fasta2 = "${name.baseName}.remap.fq2.gz"
+	if (r_tag == 'pe') 
+	"""
+	python3 ${wasp_path}/mapping/rmdup_pe.py \
+		${bam_file} pe.reads.rmdup.bam
 
-		## step 1 -- remove duplicates
-		##
-		python3 ${wasp_path}/mapping/rmdup.py \
-			se.hashed.bam  se.reads.rmdup.bam
-
-		samtools sort \
-			-m ${mem}M \
-			-@${task.cpus} \
-			-o se.reads.rmdup.sorted.bam \
-			-O bam \
-			se.reads.rmdup.bam
-		
-		rmdup_original_files="\${rmdup_original_files} se.reads.rmdup.sorted.bam"
-
-		## step 2 -- get reads overlapping a SNV
-		### Creates 3 following files:
-		### se.reads.rmdup.sorted.to.remap.bam (reads to remap)
-		### se.reads.rmdup.sorted.keep.bam (reads to keep)
-		### se.reads.rmdup.sorted.remap.fq.gz (fastq file containing the reads with flipped alleles to remap)
-		python3 ${wasp_path}/mapping/find_intersecting_snps.py \
-			--is_sorted \
-			--output_dir \${PWD} \
-			--snp_tab snp_tab.h5 \
-			--snp_index snp_index.h5  \
-			--haplotype haplotypes.h5 \
-			--samples ${indiv_id} \
-			se.reads.rmdup.sorted.bam
-
-		## step 3 -- re-align reads
-
-		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
-			se.reads.rmdup.sorted.remap.fq.gz \
-		> se.reads.rmdup.sorted.remap.fq.sai
-
-		bwa samse -n 10 \
-			${params.genome_fasta_file} \
-			se.reads.rmdup.sorted.remap.fq.sai \
-			se.reads.rmdup.sorted.remap.fq.gz  \
-		| samtools view -b --reference ${params.genome_fasta_file} - \
-		> se.reads.remapped.bam
-
-		## step 4 -- mark QC flag
-		## Creates filtered bam file se.reads.remapped.marked.bam 
-
-		python3 $moduleDir/bin/filter_reads.py \
-			se.reads.remapped.bam \
-			se.reads.remapped.marked.bam \
-			${params.nuclear_chroms}
-
-		## step 5 -- filter reads
-
-		samtools sort \
-			-m ${mem}M \
-			-@${task.cpus} -l0 se.reads.remapped.marked.bam \
-		| samtools view -b -F 512 - \
-		> se.reads.remapped.marked.filtered.bam
-
-		python3 ${wasp_path}/mapping/filter_remapped_reads.py \
-			se.reads.rmdup.sorted.to.remap.bam \
-			se.reads.remapped.marked.filtered.bam \
-			se.reads.remapped.result.bam
-		
-		remapped_merge_files="\${remapped_merge_files} se.reads.remapped.result.bam"
-	fi
-
-	## paired-end
-	if [[ \${n_pe} -gt 0 ]]; then
-		
-		## step 1 -- remove duplicates
-		##
-		python3 ${wasp_path}/mapping/rmdup_pe.py \
-			pe.bam pe.reads.rmdup.bam
-
-		samtools sort \
-			-m ${mem}M \
-			-@${task.cpus} \
-			-o pe.reads.rmdup.sorted.bam \
-			-O bam \
-			pe.reads.rmdup.bam
-		
-		rmdup_original_files="\${rmdup_original_files} pe.reads.rmdup.sorted.bam"
-
-		## step 2 -- get reads overlapping a SNV
-		##
-		python3 ${wasp_path}/mapping/find_intersecting_snps.py \
-			--is_paired_end \
-			--is_sorted \
-			--output_dir \${PWD} \
-			--snp_tab snp_tab.h5 \
-			--snp_index snp_index.h5  \
-			--haplotype haplotypes.h5 \
-			--samples ${indiv_id} \
-			pe.reads.rmdup.sorted.bam
-
-		## step 3 -- re-align reads
-		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
-			pe.reads.rmdup.sorted.remap.fq1.gz \
-		> pe.reads.rmdup.sorted.remap.fq1.sai
-
-		bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
-			pe.reads.rmdup.sorted.remap.fq2.gz \
-		> pe.reads.rmdup.sorted.remap.fq2.sai
-
-		bwa sampe -n 10 -a 750 \
-			${params.genome_fasta_file} \
-			pe.reads.rmdup.sorted.remap.fq1.sai pe.reads.rmdup.sorted.remap.fq2.sai \
-			pe.reads.rmdup.sorted.remap.fq1.gz pe.reads.rmdup.sorted.remap.fq2.gz \
-		| samtools view -b --reference ${params.genome_fasta_file} - \
-		> pe.reads.remapped.bam
-
-		## step 4 -- mark QC flag
-		python3 $moduleDir/bin/filter_reads.py \
-			pe.reads.remapped.bam \
-			pe.reads.remapped.marked.bam \
-			${params.nuclear_chroms}
-
-		## step 5 -- filter reads
-
-		samtools sort \
-			-m ${mem}M \
-			-@${task.cpus} -l0 pe.reads.remapped.marked.bam \
-		| samtools view -b -F 512 - \
-		> pe.reads.remapped.marked.filtered.bam
-
-		python3 ${wasp_path}/mapping/filter_remapped_reads.py \
-			pe.reads.rmdup.sorted.to.remap.bam \
-			pe.reads.remapped.marked.filtered.bam \
-			pe.reads.remapped.result.bam
-		remapped_merge_files="\${remapped_merge_files} pe.reads.remapped.result.bam"
-	fi
-
-
-
-	## step 6 -- merge se and pe reads
-	if [ "`echo \${remapped_merge_files} | wc -w`" -ge 2 ]; then
-		samtools merge -f reads.passing.bam \
-			\${remapped_merge_files}
-	else
-		mv \${remapped_merge_files} reads.passing.bam
-	fi
-		
 	samtools sort \
-		-m ${mem}M \
 		-@${task.cpus} \
-		-o ${ag_number}.passing.bam  \
-		reads.passing.bam
-	samtools index ${ag_number}.passing.bam
+		-o ${name} \
+		-O bam \
+		pe.reads.rmdup.bam
 
-
-	###########################
-	if [ "`echo \${rmdup_original_files} | wc -w`" -ge 2 ]; then
-		samtools merge -f reads.rmdup.original.bam \
-			\${rmdup_original_files}
-
-		samtools sort \
-		-m ${mem}M \
-		-@${task.cpus} \
-		-o reads.original.sorted.rmdup.bam  \
-		reads.rmdup.original.bam
+	python3 ${wasp_path}/mapping/find_intersecting_snps.py \
+		--is_paired_end \
+		--is_sorted \
+		--output_dir ./ \
+		--snp_tab snp_tab.h5 \
+		--snp_index snp_index.h5  \
+		--haplotype haplotypes.h5 \
+		--samples ${indiv_id} \
+		${name}
+	"""
 	else
-		mv \${rmdup_original_files} reads.original.sorted.rmdup.bam
-	fi
+	"""
+	# an ugly hack to deal with repeated read names on legacy SOLEXA GA1 data
+	$moduleDir/bin/hash_se_reads.py ${bam_file} se.hashed.bam
 
-	samtools index reads.original.sorted.rmdup.bam
+	python3 ${wasp_path}/mapping/rmdup.py \
+		se.hashed.bam  se.reads.rmdup.bam
+	
+	samtools sort \
+		-@${task.cpus} \
+		-o ${name} \
+		-O bam \
+		se.reads.rmdup.bam
 
+	### Creates 3 following files:
+	### se.reads.rmdup.sorted.to.remap.bam (reads to remap)
+	### se.reads.rmdup.sorted.keep.bam (reads to keep)
+	### se.reads.rmdup.sorted.remap.fq.gz (fastq file containing the reads with flipped alleles to remap)
+	python3 ${wasp_path}/mapping/find_intersecting_snps.py \
+		--is_sorted \
+		--output_dir ./ \
+		--snp_tab snp_tab.h5 \
+		--snp_index snp_index.h5  \
+		--haplotype haplotypes.h5 \
+		--samples ${indiv_id} \
+		${name}
+	
+	mv ${name.baseName}.remap.fq.gz ${fasta1}
+	ln -s ${fasta1} ${fasta2}
+	"""
+}
+
+
+process filter_bad_reads {
+	container "${params.container}"
+	scratch true
+	tag "${ag_id}:${r_tag}"
+
+	input:
+		tuple val(ag_number), val(r_tag), path(bam_file), path(initial_bam_file)
+	
+	output:
+		tuple val(ag_number), path(name)
+
+	script:
+	name = "${ag_number}.${r_tag}.result.bam"
+	"""
+	python3 ${wasp_path}/mapping/filter_remapped_reads.py \
+		${initial_bam_file} \
+		${bam_file} \
+		${name}
+	"""
+}
+
+process merge_bam_files {
+	container "${params.container}"
+	scratch true
+	tag "${ag_number}"
+
+	input:
+		tuple val(ag_number), path(bam_files)
+		val(suffix)
+
+	output:
+		tuple val(ag_number), path(name), path("${name}.bai")
+
+	script:
+	name = "${ag_number}.${suffix}.bam"
+	if bam_files.split(' ').size() >= 2
+	"""
+	samtools merge -f reads.rmdup.original.bam \
+		${bam_files}
+
+	samtools sort \
+		-@${task.cpus} \
+		-o ${name} \
+		reads.rmdup.original.bam
+	samtools index ${name}
+	"""
+	else
+	"""
+	ln -s ${bam_files} ${name}
+	samtools sort \
+		-@${task.cpus} \
+		-o ${name}  \
+		reads.passing.bam
+	samtools index ${name}
+	"""
+}
+
+process calc_initial_read_counts {
+	container "${params.container}"
+	tag "${ag_number}"
+	input:
+		tuple val(ag_number), path(bam_file), path(bam_file_index)
+
+	output:
+		tuple val(ag_number), path(name), path("${name}.tbi")
+
+	script:
+	name = "${ag_number}.coverage.bed.gz"
+	"""
 	python3 $moduleDir/bin/count_tags_pileup.py ${filtered_sites_file} \
-		 reads.original.sorted.rmdup.bam \
-		 --only_coverage | bgzip -c > ${ag_number}.coverage.bed.gz
-	tabix ${ag_number}.coverage.bed.gz
+		${bam_file} \
+		--only_coverage | bgzip -c > ${name}
+	tabix ${name}
 	"""
 }
 
@@ -310,7 +368,7 @@ process count_reads {
 	publishDir params.outdir + "/count_reads"
 
 	input:
-		tuple val(indiv_id), val(ag_number), path(filtered_sites_file), path(filtered_sites_file_index), path(bam_passing_file), path(bam_passing_file_index), path(rmdup_counts), path(rmdup_counts_index)
+		tuple val(ag_number), val(indiv_id), path(filtered_sites_file), path(filtered_sites_file_index), path(bam_passing_file), path(bam_passing_file_index), path(rmdup_counts), path(rmdup_counts_index)
 
 	output:
 		tuple val(indiv_id), path(name), path("${name}.tbi")
@@ -366,37 +424,80 @@ process add_snp_files_to_meta {
 }
 
 
-workflow waspRealigning {
+workflow calcInitialReadCounts {
 	take:
-		samples_aggregations
+		data
 	main:
-		sagr = samples_aggregations.map(it -> tuple(it[1], it[0], it[2], it[3]))
-		h5_tables = generate_h5_tables().collect()
-		snps_sites = filter_variants(sagr.map(it -> tuple(it[0], it[1])))
-		samples = sagr.join(snps_sites, by: 0)
-		count_reads_files = remap_bamfiles(samples, h5_tables) | count_reads
-		out = merge_by_indiv(count_reads_files.groupTuple())
+		out = merge_bam_files(data) | calc_initial_read_counts
 	emit:
 		out
 }
 
-workflow realignOnly {
+workflow waspRealigning {
+	take:
+		samples_aggregations
+	main:
+		h5_tables = generate_h5_tables().collect()
+
+		sagr = samples_aggregations.map(it -> tuple(it[1], it[0], it[2], it[3]))
+		
+		indiv_ag_id_map = sagr.map(it -> tuple(it[0], it[1]))
+		
+		snps_sites = filter_variants(indiv_ag_id_map)
+		samples = sagr.join(snps_sites, by: 0)
+		r_tags = Channel.of('pe', 'se')
+		to_remap_reads_and_initial_bam = samples 
+			| combine(r_tags)
+			| split_reads
+			| filter { it[4].toInteger() > 0 }
+			| extract_remap_reads
+
+		dedup_bam = to_remap_reads_and_initial_bam.bamfile
+
+		filtered_bam = to_remap_reads_and_initial_bam.fastq
+			| align_reads
+			| join(dedup_bam, by: [0, 1])
+			| filter_bad_reads
+			| groupTuple()
+			| merge_files
+
+		initial_read_counts = dedup_bam 
+			| map(it -> tuple(it[0], it[2], it[3])) 
+			| groupTuple() 
+			| calcInitialReadCounts
+
+
+		out = indiv_ag_id_map 
+			| join(snps_sites)
+			| join(filtered_bam)
+			| join(initial_read_counts)
+			| count_reads
+			| groupTuple()
+			| merge_by_indiv
+		
+	emit:
+		out
+}
+
+workflow test {
 	fpath = "/net/seq/data2/projects/sabramov/ENCODE4/dnase-wasp/output"
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.indiv_id, row.ag_id,
-			file(row.bam_file), file("${row.bam_file}.crai"),
+		.map(row -> tuple(row.ag_id, row.indiv_id,
 			file("${fpath}/target_variants/${row.indiv_id}:${row.ag_id}.bed.gz"),
 			file("${fpath}/target_variants/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
-		 	file("${fpath}/remapped_files/${row.ag_id}.coverage.bed.gz")))
-		.unique { it[1] }
-		.filter { !it[6].exists() }
+			file("${fpath}/remapped_files/${row.ag_id}.passing.bam"),
+			file("${fpath}/remapped_files/${row.ag_id}.passing.bam.bai"),
+			file("${fpath}/remapped_files/${row.ag_id}.coverage.bed.gz"),
+			file("${fpath}/remapped_files/${row.ag_id}.coverage.bed.gz.tbi"),
+		 	file("${fpath}/count_reads/${row.ag_id}.bed.gz")))
+		.unique { it[0] }
+		.filter { it[4].exists() }
+		.filter { !it[8].exists() }
 		
-	samples = samples_aggregations.map(it -> tuple(it[1], it[0], it[2], it[3], it[4], it[5]))
-	h5_tables = Channel.fromPath("${fpath}/h5/*.h5").collect()
-
-	count_reads_files = remap_bamfiles(samples, h5_tables)
+	samples = samples_aggregations.map(it -> tuple(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7]))
+	count_reads(samples)
 }
 
 workflow makeAltGenome {
