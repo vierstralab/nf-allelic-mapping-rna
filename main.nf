@@ -95,8 +95,9 @@ process align_reads {
 				"""
 			}
 		}
-		default:
-		error "Aligning with ${params.aligner} is not implemented. You can add it in 'align_reads' process"
+		default: {
+			error "Aligning with ${params.aligner} is not implemented. You can add it in 'align_reads' process"
+		}
 	}
 }
 
@@ -233,56 +234,56 @@ process extract_remap_reads {
 	fasta1 = "${name.baseName}.remap.fq1.gz"
 	fasta2 = "${name.baseName}.remap.fq2.gz"
 	if (r_tag == 'pe') 
-	"""
-	python3 ${wasp_path}/mapping/rmdup_pe.py \
-		${bam_file} pe.reads.rmdup.bam
+		"""
+		python3 ${wasp_path}/mapping/rmdup_pe.py \
+			${bam_file} pe.reads.rmdup.bam
 
-	samtools sort \
-		-@${task.cpus} \
-		-o ${name} \
-		-O bam \
-		pe.reads.rmdup.bam
+		samtools sort \
+			-@${task.cpus} \
+			-o ${name} \
+			-O bam \
+			pe.reads.rmdup.bam
 
-	python3 ${wasp_path}/mapping/find_intersecting_snps.py \
-		--is_paired_end \
-		--is_sorted \
-		--output_dir ./ \
-		--snp_tab snp_tab.h5 \
-		--snp_index snp_index.h5  \
-		--haplotype haplotypes.h5 \
-		--samples ${indiv_id} \
-		${name}
-	"""
+		python3 ${wasp_path}/mapping/find_intersecting_snps.py \
+			--is_paired_end \
+			--is_sorted \
+			--output_dir ./ \
+			--snp_tab snp_tab.h5 \
+			--snp_index snp_index.h5  \
+			--haplotype haplotypes.h5 \
+			--samples ${indiv_id} \
+			${name}
+		"""
 	else
-	"""
-	# an ugly hack to deal with repeated read names on legacy SOLEXA GA1 data
-	$moduleDir/bin/hash_se_reads.py ${bam_file} se.hashed.bam
+		"""
+		# an ugly hack to deal with repeated read names on legacy SOLEXA GA1 data
+		$moduleDir/bin/hash_se_reads.py ${bam_file} se.hashed.bam
 
-	python3 ${wasp_path}/mapping/rmdup.py \
-		se.hashed.bam  se.reads.rmdup.bam
-	
-	samtools sort \
-		-@${task.cpus} \
-		-o ${name} \
-		-O bam \
-		se.reads.rmdup.bam
+		python3 ${wasp_path}/mapping/rmdup.py \
+			se.hashed.bam  se.reads.rmdup.bam
+		
+		samtools sort \
+			-@${task.cpus} \
+			-o ${name} \
+			-O bam \
+			se.reads.rmdup.bam
 
-	### Creates 3 following files:
-	### se.reads.rmdup.sorted.to.remap.bam (reads to remap)
-	### se.reads.rmdup.sorted.keep.bam (reads to keep)
-	### se.reads.rmdup.sorted.remap.fq.gz (fastq file containing the reads with flipped alleles to remap)
-	python3 ${wasp_path}/mapping/find_intersecting_snps.py \
-		--is_sorted \
-		--output_dir ./ \
-		--snp_tab snp_tab.h5 \
-		--snp_index snp_index.h5  \
-		--haplotype haplotypes.h5 \
-		--samples ${indiv_id} \
-		${name}
-	
-	mv ${name.baseName}.remap.fq.gz ${fasta1}
-	ln -s ${fasta1} ${fasta2}
-	"""
+		### Creates 3 following files:
+		### se.reads.rmdup.sorted.to.remap.bam (reads to remap)
+		### se.reads.rmdup.sorted.keep.bam (reads to keep)
+		### se.reads.rmdup.sorted.remap.fq.gz (fastq file containing the reads with flipped alleles to remap)
+		python3 ${wasp_path}/mapping/find_intersecting_snps.py \
+			--is_sorted \
+			--output_dir ./ \
+			--snp_tab snp_tab.h5 \
+			--snp_index snp_index.h5  \
+			--haplotype haplotypes.h5 \
+			--samples ${indiv_id} \
+			${name}
+		
+		mv ${name.baseName}.remap.fq.gz ${fasta1}
+		ln -s ${fasta1} ${fasta2}
+		"""
 }
 
 
@@ -321,31 +322,32 @@ process merge_bam_files {
 
 	script:
 	name = "${ag_number}.${suffix}.bam"
-	if bam_files.split(' ').size() >= 2
-	"""
-	samtools merge -f reads.rmdup.original.bam \
-		${bam_files}
+	if (bam_files.split(' ').size() >= 2)
+		"""
+		samtools merge -f reads.rmdup.original.bam \
+			${bam_files}
 
-	samtools sort \
-		-@${task.cpus} \
-		-o ${name} \
-		reads.rmdup.original.bam
-	samtools index ${name}
-	"""
+		samtools sort \
+			-@${task.cpus} \
+			-o ${name} \
+			reads.rmdup.original.bam
+		samtools index ${name}
+		"""
 	else
-	"""
-	ln -s ${bam_files} ${name}
-	samtools sort \
-		-@${task.cpus} \
-		-o ${name}  \
-		reads.passing.bam
-	samtools index ${name}
-	"""
+		"""
+		ln -s ${bam_files} ${name}
+		samtools sort \
+			-@${task.cpus} \
+			-o ${name}  \
+			reads.passing.bam
+		samtools index ${name}
+		"""
 }
 
 process calc_initial_read_counts {
 	container "${params.container}"
 	tag "${ag_number}"
+
 	input:
 		tuple val(ag_number), path(bam_file), path(bam_file_index)
 
@@ -377,7 +379,9 @@ process count_reads {
 	name = "${ag_number}.bed.gz"
 	"""
 	python3 $moduleDir/bin/count_tags_pileup.py \
-		${filtered_sites_file} ${bam_passing_file} --original_dedup_cover ${rmdup_counts} | sort-bed - | bgzip -c > ${name}
+		${filtered_sites_file} ${bam_passing_file} \
+		--original_dedup_cover ${rmdup_counts} \
+		| sort-bed - | bgzip -c > ${name}
 	tabix ${name}
 	"""
 }
@@ -397,10 +401,7 @@ process merge_by_indiv {
 	script:
 	name = "${indiv_id}.snps.bed"
 	"""
-	for file in ${bed_files}
-	do
-		zcat \$file | sed 's/None/./g' | bgzip -c > tmp.bed.gz
-		mv tmp.bed.gz \$file
+	for file in ${bed_files}; do
 		python3 $moduleDir/bin/tags_to_babachi_format.py \$file >> ${indiv_id}.snps
 	done
 	echo "#chr\tstart\tend\tID\tref\talt\tref_counts\talt_counts\tsample_id\tAAF\tRAF\tFMR" > ${name}
