@@ -473,7 +473,7 @@ workflow test {
 		.map(row -> tuple(row.indiv_id, 
 		 	file("${fpath}/count_reads/${row.ag_id}.bed.gz"),
 			file("${fpath}/count_reads/${row.ag_id}.bed.gz.tbi"),
-			file("${fpath}/indiv_merged_files/${row.indiv_id}.snsp.bed")
+			file("${fpath}/indiv_merged_files/${row.indiv_id}.snps.bed")
 			)
 		)
 		.filter { !it[3].exists() }
