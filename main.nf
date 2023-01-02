@@ -375,6 +375,7 @@ process merge_by_indiv {
 	tag "${indiv_id}"
 	container "${params.container}"
 	scratch true
+	errorStrategy 'terminate'
 
 	input:
 		tuple val(indiv_id), path(bed_files), path(bed_file_index)
