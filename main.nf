@@ -117,22 +117,6 @@ def get_container(file_name) {
 }
 
 
-process make_iupac_genome {
-	container "${params.container}"
-	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.genotype_file)}" 
-	publishDir "${params.outdir}/alt_genome"
-	
-	output:
-		tuple path("${name}"), path("${name}.fai")
-
-	script:
-	name = "iupac.genome.fa"
-    """
-    python3 $moduleDir/bin/nonref_genome.py ${params.genome_fasta_file} ${name} ${params.genotype_file}
-    """
-}
-
-
 process filter_variants {
 	tag "${indiv_id}:${ag_id}"
 	container "${params.container}"
@@ -485,25 +469,20 @@ workflow test {
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.ag_id, row.indiv_id,
-			file("${fpath}/target_variants/${row.indiv_id}:${row.ag_id}.bed.gz"),
-			file("${fpath}/target_variants/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
-			file("${fpath}/remapped_files/${row.ag_id}.passing.bam"),
-			file("${fpath}/remapped_files/${row.ag_id}.passing.bam.bai"),
-			file("${fpath}/remapped_files/${row.ag_id}.coverage.bed.gz"),
-			file("${fpath}/remapped_files/${row.ag_id}.coverage.bed.gz.tbi"),
-		 	file("${fpath}/count_reads/${row.ag_id}.bed.gz")))
-		.unique { it[0] }
-		.filter { it[4].exists() }
-		.filter { !it[8].exists() }
+		.map(row -> tuple(row.indiv_id, 
+		 	file("${fpath}/count_reads/${row.ag_id}.bed.gz"),
+			file("${fpath}/count_reads/${row.ag_id}.bed.gz.tbi"),
+			file("${fpath}/indiv_merged_files/${row.indiv_id}.snsp.bed")
+			)
+		)
+		.filter { !it[3].exists() }
+		.map(it -> tuple(it[0], it[1], it[2]))
+		.groupTuple()
 		
-	samples = samples_aggregations.map(it -> tuple(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7]))
-	count_reads(samples)
+	samples = samples_aggregations
+	merge_by_indiv(samples)
 }
 
-workflow makeAltGenome {
-	make_iupac_genome()
-}
 
 workflow {
 	samples_aggregations = Channel
@@ -516,4 +495,23 @@ workflow {
 	}
 	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 	add_snp_files_to_meta() 
+}
+
+process make_iupac_genome {
+	container "${params.container}"
+	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.genotype_file)}" 
+	publishDir "${params.outdir}/alt_genome"
+	
+	output:
+		tuple path("${name}"), path("${name}.fai")
+
+	script:
+	name = "iupac.genome.fa"
+    """
+    python3 $moduleDir/bin/nonref_genome.py ${params.genome_fasta_file} ${name} ${params.genotype_file}
+    """
+}
+
+workflow makeAltGenome {
+	make_iupac_genome()
 }
