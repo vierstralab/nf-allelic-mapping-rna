@@ -469,18 +469,20 @@ workflow test {
 	samples_aggregations = Channel
 		.fromPath(params.samples_file)
 		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.indiv_id, 
-		 	file("${fpath}/count_reads/${row.ag_id}.bed.gz"),
-			file("${fpath}/count_reads/${row.ag_id}.bed.gz.tbi"),
-			file("${fpath}/indiv_merged_files/${row.indiv_id}.snsp.bed")
-			)
-		)
-		.filter { !it[3].exists() }
-		.map(it -> tuple(it[0], it[1], it[2]))
-		.groupTuple()
+		.map(row -> tuple(row.ag_id, row.indiv_id,
+			file("${fpath}/target_variants/${row.indiv_id}:${row.ag_id}.bed.gz"),
+			file("${fpath}/target_variants/${row.indiv_id}:${row.ag_id}.bed.gz.tbi"),
+			file("${fpath}/remapped_files/${row.ag_id}.passing.bam"),
+			file("${fpath}/remapped_files/${row.ag_id}.passing.bam.bai"),
+			file("${fpath}/remapped_files/${row.ag_id}.coverage.bed.gz"),
+			file("${fpath}/remapped_files/${row.ag_id}.coverage.bed.gz.tbi"),
+		 	file("${fpath}/count_reads/${row.ag_id}.bed.gz")))
+		.unique { it[0] }
+		.filter { it[4].exists() }
+		.filter { !it[8].exists() }
 		
-	samples = samples_aggregations
-	merge_by_indiv(samples)
+	samples = samples_aggregations.map(it -> tuple(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7]))
+	count_reads(samples)
 }
 
 
