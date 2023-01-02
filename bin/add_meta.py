@@ -4,7 +4,7 @@ import os
 
 
 def get_snps_file_name(value, prefix):
-    return os.path.join(prefix, value + '.snps.bed.gz')
+    return os.path.join(prefix, value + '.snps.bed')
 
 def main(old_meta, output, file_prefix):
     df = pd.read_table(old_meta)
