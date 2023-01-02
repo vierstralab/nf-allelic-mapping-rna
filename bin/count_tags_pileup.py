@@ -12,7 +12,7 @@ import pysam
 logging.basicConfig(stream = sys.stderr, level='WARNING')
 
 def transform_af(value):
-	if value == '.':
+	if value == '.' or value == 'None' or value is None:
 		return None
 	else:
 		return float(value)
