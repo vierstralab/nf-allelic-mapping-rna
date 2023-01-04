@@ -497,22 +497,3 @@ workflow {
 	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 	add_snp_files_to_meta() 
 }
-
-process make_iupac_genome {
-	container "${params.container}"
-	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.genotype_file)}" 
-	publishDir "${params.outdir}/alt_genome"
-	
-	output:
-		tuple path("${name}"), path("${name}.fai")
-
-	script:
-	name = "iupac.genome.fa"
-    """
-    python3 $moduleDir/bin/nonref_genome.py ${params.genome_fasta_file} ${name} ${params.genotype_file}
-    """
-}
-
-workflow makeAltGenome {
-	make_iupac_genome()
-}
