@@ -150,6 +150,27 @@ process filter_variants {
 	"""
 }
 
+process merge_snv_files {
+	scratch true
+	container "${params.container}"
+
+	input:
+		path snv_files
+
+	output:
+		tuple path(name), path("${name}.tbi")
+
+	script:
+	name = "all_variants_stats.bed.gz"
+	"""
+	echo "${snv_files}" | tr " " "\n" > filelist.txt
+	while read line; do
+		zcat $file | awk -v name=`basename \$line .bed.gz` '{print \$0,name}' >> variants.bed
+	done
+	sort-bed variants.bed | bgzip -c > ${name}
+	tabix ${name}
+	"""
+}
 
 process generate_h5_tables {
 	scratch true
@@ -430,6 +451,8 @@ workflow waspRealigning {
 		indiv_ag_id_map = sagr.map(it -> tuple(it[0], it[1]))
 		
 		snps_sites = filter_variants(indiv_ag_id_map)
+		merge_snv_files(snps_sites.map(it -> it[1]))
+		
 		samples = sagr.join(snps_sites, by: 0)
 		r_tags = Channel.of('pe', 'se')
 		to_remap_reads_and_initial_bam = samples 
@@ -463,25 +486,6 @@ workflow waspRealigning {
 		
 	emit:
 		out
-}
-
-workflow test {
-	fpath = "/net/seq/data2/projects/sabramov/ENCODE4/dnase-wasp/output"
-	samples_aggregations = Channel
-		.fromPath(params.samples_file)
-		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.indiv_id, 
-		 	file("${fpath}/count_reads/${row.ag_id}.bed.gz"),
-			file("${fpath}/count_reads/${row.ag_id}.bed.gz.tbi"),
-			file("${fpath}/indiv_merged_files/${row.indiv_id}.snps.bed")
-			)
-		)
-		.filter { !it[3].exists() }
-		.map(it -> tuple(it[0], it[1], it[2]))
-		.groupTuple()
-		
-	samples = samples_aggregations
-	merge_by_indiv(samples)
 }
 
 
