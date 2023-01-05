@@ -153,6 +153,7 @@ process filter_variants {
 process merge_snv_files {
 	scratch true
 	container "${params.container}"
+	publishDir "${params.outdir}"
 
 	input:
 		path snv_files
@@ -163,10 +164,11 @@ process merge_snv_files {
 	script:
 	name = "all_variants_stats.bed.gz"
 	"""
-	echo "${snv_files}" | tr " " "\n" > filelist.txt
-	while read line; do
-		zcat $file | awk -v name=`basename \$line .bed.gz` '{print \$0,name}' >> variants.bed
-	done
+	echo "${snv_files}" | tr ' ' '\n' | sort -t ":" -k1,1 -u > filelist.txt
+	while read file; do
+		zcat \$file | awk -v OFS='\t' -v name=`basename \$file | awk -F':' '{ print \$1 }'` '{print \$0,name}' >> variants.bed 
+	done < filelist.txt
+
 	sort-bed variants.bed | bgzip -c > ${name}
 	tabix ${name}
 	"""
