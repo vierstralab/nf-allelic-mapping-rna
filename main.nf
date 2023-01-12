@@ -5,7 +5,7 @@ nextflow.enable.dsl = 2
 process align_reads {
 	container "${params.container}"
 	// All external files (passed as params) should be wrapped 
-	// in "get_container" function and written in continer option
+	// in "get_container" function and added to containerOptions
 	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)} ${params.aligner == 'bowtie' ? get_container(params.bowtie_idx) : ''}"
 	scratch true
 	tag "${ag_id}:${r_tag}"
@@ -27,7 +27,7 @@ process align_reads {
 	script:
 	name = "${ag_id}.${r_tag}.realigned.bam"
 	switch (params.aligner) {
-		case 'bwa': {
+		case 'bwa-altius-dnase': {
 			// PE reads alignment
 			if (r_tag == 'pe') {
 				"""
