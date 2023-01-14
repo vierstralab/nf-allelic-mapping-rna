@@ -322,13 +322,12 @@ process merge_bam_files {
 
 	input:
 		tuple val(ag_number), path(bam_files)
-		val(suffix)
 
 	output:
 		tuple val(ag_number), path(name), path("${name}.bai")
 
 	script:
-	name = "${ag_number}.${suffix}.bam"
+	name = "${ag_number}.merged.bam"
 	if (bam_files.split(' ').size() >= 2)
 		"""
 		samtools merge -f reads.rmdup.original.bam \
