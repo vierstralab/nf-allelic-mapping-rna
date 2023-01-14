@@ -457,11 +457,11 @@ workflow waspRealigning {
 		
 		samples = sagr.join(snps_sites, by: 0)
 		r_tags = Channel.of('pe', 'se')
-		to_remap_reads_and_initial_bam = samples 
+		split_reads = samples 
 			| combine(r_tags)
 			| split_reads
 			| filter { it[4].toInteger() > 0 }
-			| extract_remap_reads
+		to_remap_reads_and_initial_bam = extract_remap_reads(split_reads, h5_tables)
 
 		dedup_bam = to_remap_reads_and_initial_bam.bamfile
 
