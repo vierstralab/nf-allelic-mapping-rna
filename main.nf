@@ -470,7 +470,7 @@ workflow waspRealigning {
 			| join(dedup_bam, by: [0, 1])
 			| filter_bad_reads
 			| groupTuple()
-			| merge_files
+			| merge_bam_files
 
 		initial_read_counts = dedup_bam 
 			| map(it -> tuple(it[0], it[2], it[3])) 
