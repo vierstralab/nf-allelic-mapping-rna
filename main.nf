@@ -456,7 +456,7 @@ workflow waspRealigning {
 		
 		samples = sagr.join(snps_sites, by: 0)
 		r_tags = Channel.of('pe', 'se')
-		split_reads = samples 
+		split_reads = sagr
 			| combine(r_tags)
 			| split_reads
 			| filter { it[4].toInteger() > 0 }
