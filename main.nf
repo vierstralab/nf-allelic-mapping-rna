@@ -217,9 +217,9 @@ process split_reads {
 	name = "${ag_number}.${r_tag}.bam"
 	pars = r_tag == 'pe' ? "-f 1" : "-F 1"
 	"""
-	samtools view -O bam -h ${pars} --reference ${params.genome_fasta_file} ${bam_file} > align.bam
-	samtools index align.bam
-	n_counts=\$(samtools view -c align.bam)
+	samtools view -O bam -h ${pars} --reference ${params.genome_fasta_file} ${bam_file} > ${name}
+	samtools index ${name}
+	n_counts=\$(samtools view -c ${name})
 	"""
 }
 
