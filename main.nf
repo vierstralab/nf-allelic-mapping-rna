@@ -238,8 +238,8 @@ process extract_remap_reads {
 	
 	script:
 	name = "${ag_number}.${r_tag}.rmdup.bam"
-	fasta1 = "${name.baseName}.remap.fq1.gz"
-	fasta2 = "${name.baseName}.remap.fq2.gz"
+	fasta1 = "${name}.remap.fq1.gz"
+	fasta2 = "${name}.remap.fq2.gz"
 	if (r_tag == 'pe') 
 		"""
 		python3 ${wasp_path}/mapping/rmdup_pe.py \
@@ -294,7 +294,7 @@ process extract_remap_reads {
 }
 
 
-process filter_bad_reads {
+process wasp_filter_reads {
 	container "${params.container}"
 	scratch true
 	tag "${ag_id}:${r_tag}"
@@ -467,7 +467,7 @@ workflow waspRealigning {
 		filtered_bam = to_remap_reads_and_initial_bam.fastq
 			| align_reads
 			| join(dedup_bam, by: [0, 1])
-			| filter_bad_reads
+			| wasp_filter_reads
 			| groupTuple()
 			| merge_bam_files
 
