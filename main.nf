@@ -28,7 +28,7 @@ process align_reads {
 	// Name of the output bam file
 	name = "${ag_number}.${r_tag}.realigned.bam"
 	switch (params.aligner) {
-		case 'bwa-altius-dnase': {
+		case 'bwa-altius-dnase':
 			// PE reads alignment
 			if (r_tag == 'pe') {
 				"""
@@ -81,8 +81,7 @@ process align_reads {
 				"""
 			}
 			break;
-		}
-		case "bowtie-chip": {
+		case "bowtie-chip":
 			if (r_tag == 'pe') {
 				"""
 				bowtie2 -X2000 --mm -x ${params.bowtie_idx} --threads ${task.cpus} \
@@ -97,12 +96,9 @@ process align_reads {
 				"""
 			}
 			break;
-		}
-		default: {
+		default: 
 			error "Aligning with ${params.aligner} is not implemented. You can add it in 'align_reads' process"
 			break;
-		}
-		
 	}
 }
 
