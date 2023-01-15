@@ -80,6 +80,7 @@ process align_reads {
 					> ${name}
 				"""
 			}
+			break;
 		}
 		case "bowtie-chip": {
 			if (r_tag == 'pe') {
@@ -95,10 +96,13 @@ process align_reads {
 					| samtools view -Su /dev/stdin | samtools sort - -o ${name}
 				"""
 			}
+			break;
 		}
 		default: {
 			error "Aligning with ${params.aligner} is not implemented. You can add it in 'align_reads' process"
+			break;
 		}
+		
 	}
 }
 
