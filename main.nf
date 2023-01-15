@@ -8,7 +8,7 @@ process align_reads {
 	// in "get_container" function and added to containerOptions
 	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)} ${params.aligner == 'bowtie' ? get_container(params.bowtie_idx) : ''}"
 	scratch true
-	tag "${ag_id}:${r_tag}"
+	tag "${ag_number}:${r_tag}"
 	// fastq1 is the same as fastq2 if r_tag == "se"
 	input:
 		tuple val(ag_number), val(r_tag), path(fastq1), path(fastq2)
@@ -25,7 +25,8 @@ process align_reads {
 		tuple val(ag_number), val(r_tag), path(name)
 
 	script:
-	name = "${ag_id}.${r_tag}.realigned.bam"
+	// Name of the output bam file
+	name = "${ag_number}.${r_tag}.realigned.bam"
 	switch (params.aligner) {
 		case 'bwa-altius-dnase': {
 			// PE reads alignment
