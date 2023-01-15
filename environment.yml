@@ -13,4 +13,5 @@ dependencies:
   - bwa
   - pytables
   - samtools=1.15
+  - bowtie2
 prefix: /home/sabramov/miniconda3/envs/babachi
