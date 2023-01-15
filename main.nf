@@ -233,21 +233,22 @@ process extract_remap_reads {
 		path h5_tables
 
 	output:
-		tuple val(ag_number), val(r_tag), path(name), path("${name}.bai"), emit: bamfile
+		tuple val(ag_number), val(r_tag), path(out_bam_file), path("${out_bam_file}.bai"), emit: bamfile
 		tuple val(ag_number), val(r_tag), path(fasta1), path(fasta2), emit: fastq
 	
 	script:
-	name = "${ag_number}.${r_tag}.rmdup.bam"
+	name = "${ag_number}.${r_tag}.rmdup"
+	out_bam_file = "${name}.bam"
 	fasta1 = "${name}.remap.fq1.gz"
 	fasta2 = "${name}.remap.fq2.gz"
-	if (r_tag == 'pe') 
+	if (r_tag == 'pe') {
 		"""
 		python3 ${wasp_path}/mapping/rmdup_pe.py \
 			${bam_file} pe.reads.rmdup.bam
 
 		samtools sort \
 			-@${task.cpus} \
-			-o ${name} \
+			-o ${out_bam_file} \
 			-O bam \
 			pe.reads.rmdup.bam
 
@@ -259,9 +260,9 @@ process extract_remap_reads {
 			--snp_index snp_index.h5  \
 			--haplotype haplotypes.h5 \
 			--samples ${indiv_id} \
-			${name}
+			${out_bam_file}
 		"""
-	else
+	} else {
 		"""
 		# an ugly hack to deal with repeated read names on legacy SOLEXA GA1 data
 		$moduleDir/bin/hash_se_reads.py ${bam_file} se.hashed.bam
@@ -271,7 +272,7 @@ process extract_remap_reads {
 		
 		samtools sort \
 			-@${task.cpus} \
-			-o ${name} \
+			-o ${out_bam_file} \
 			-O bam \
 			se.reads.rmdup.bam
 
@@ -286,11 +287,12 @@ process extract_remap_reads {
 			--snp_index snp_index.h5  \
 			--haplotype haplotypes.h5 \
 			--samples ${indiv_id} \
-			${name}
+			${out_bam_file}
 		
-		mv ${name.baseName}.remap.fq.gz ${fasta1}
+		mv ${name}.remap.fq.gz ${fasta1}
 		ln -s ${fasta1} ${fasta2}
 		"""
+	}
 }
 
 
