@@ -232,6 +232,7 @@ process extract_remap_reads {
 	tag "${ag_number}:${r_tag}"
 	container "${params.container}"
 	cpus 2
+	scratch true
 
 	input:
 		tuple val(ag_number), val(indiv_id), val(r_tag), path(bam_file), path(bam_file_index), env(n_counts)
