@@ -252,6 +252,8 @@ process extract_remap_reads {
 			-O bam \
 			pe.reads.rmdup.bam
 
+		samtools index ${out_bam_file}
+
 		python3 ${wasp_path}/mapping/find_intersecting_snps.py \
 			--is_paired_end \
 			--is_sorted \
@@ -275,6 +277,8 @@ process extract_remap_reads {
 			-o ${out_bam_file} \
 			-O bam \
 			se.reads.rmdup.bam
+		
+		samtools index ${out_bam_file}
 
 		### Creates 3 following files:
 		### se.reads.rmdup.sorted.to.remap.bam (reads to remap)
