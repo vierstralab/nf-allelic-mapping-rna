@@ -272,7 +272,7 @@ process extract_remap_reads {
 	} else {
 		"""
 		# an ugly hack to deal with repeated read names on legacy SOLEXA GA1 data
-		$moduleDir/bin/hash_se_reads.py ${bam_file} se.hashed.bam
+		python3 $moduleDir/bin/hash_se_reads.py ${bam_file} se.hashed.bam
 
 		python3 ${wasp_path}/mapping/rmdup.py \
 			se.hashed.bam  se.reads.rmdup.bam
