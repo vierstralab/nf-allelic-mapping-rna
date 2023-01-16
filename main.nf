@@ -6,7 +6,7 @@ process align_reads {
 	container "${params.container}"
 	// All external files (passed as params) should be wrapped 
 	// in "get_container" function and added to containerOptions
-	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)} ${params.aligner == 'bowtie' ? get_container(params.bowtie_idx) : ''}"
+	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)} ${params.aligner == 'bowtie-chip' ? get_container(params.bowtie_idx) : ''}"
 	scratch true
 	tag "${ag_number}:${r_tag}"
 	// fastq1 is the same as fastq2 if r_tag == "se"
@@ -27,7 +27,7 @@ process align_reads {
 	script:
 	// Name of the output bam file
 	name = "${ag_number}.${r_tag}.realigned.bam"
-	switch (params.aligner) {
+	switch(params.aligner) {
 		case 'bwa-altius-dnase':
 			// PE reads alignment
 			if (r_tag == 'pe') {
@@ -79,7 +79,7 @@ process align_reads {
 					| samtools view -b -F 512 - \
 					> ${name}
 				"""
-			}
+			};
 			break;
 		case "bowtie-chip":
 			if (r_tag == 'pe') {
@@ -94,7 +94,7 @@ process align_reads {
 					-U <(zcat -f ${fastq1})
 					| samtools view -Su /dev/stdin | samtools sort - -o ${name}
 				"""
-			}
+			};
 			break;
 		default: 
 			error "Aligning with ${params.aligner} is not implemented. You can add it in 'align_reads' process"
