@@ -503,7 +503,7 @@ workflow waspRealigning {
 			| map(it -> tuple(it[0], tuple(it[1], true)))
 		
 		merged_out_bam = nodata	
-			| concat(filtered_reads)
+			| concat(filtered_bam)
 			| groupTuple(size: 2)
 			| filter_grouped_channel
 			| merge_bam_files
