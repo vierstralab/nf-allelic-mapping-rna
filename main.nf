@@ -115,7 +115,10 @@ def set_key_for_group_tuple(ch) {
 }
 
 def filter_grouped_channel(ch) {
-	ch.map(it -> tuple(it[0], it[1].filter { f -> f[1] }[0]))
+	ch.map(it -> tuple(it[0], it[1]
+		.filter { f[1] }
+		.map(f -> f[0]))
+		)
 }
 
 def get_container(file_name) {
@@ -493,13 +496,13 @@ workflow waspRealigning {
 
 		dedup_bam = to_remap_reads_and_initial_bam.bamfile
 
-		filtered_reads = to_remap_reads_and_initial_bam.fastq
+		filtered_bam = to_remap_reads_and_initial_bam.fastq
 			| align_reads
 			| join(dedup_bam, by: [0, 1])
 			| wasp_filter_reads
 			| map(it -> tuple(it[0], tuple(it[1], true)))
 		
-		filtered_bam = nodata	
+		merged_out_bam = nodata	
 			| concat(filtered_reads)
 			| groupTuple(size: 2)
 			| filter_grouped_channel
@@ -514,7 +517,7 @@ workflow waspRealigning {
 
 		out = indiv_ag_id_map 
 			| join(snps_sites)
-			| join(filtered_bam)
+			| join(merged_out_bam)
 			| join(initial_read_counts)
 			| count_reads
 			| groupTuple()
