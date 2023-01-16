@@ -314,7 +314,7 @@ process extract_remap_reads {
 process wasp_filter_reads {
 	container "${params.container}"
 	scratch true
-	tag "${ag_id}:${r_tag}"
+	tag "${ag_number}:${r_tag}"
 
 	input:
 		tuple val(ag_number), val(r_tag), path(bam_file), path(initial_bam_file), path(initial_bam_file_index)
