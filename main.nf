@@ -351,8 +351,7 @@ process merge_bam_files {
 
 	script:
 	name = "${ag_number}.merged.bam"
-	println(bam_files)
-	if (bam_files.size() >= 2)
+	if (bam_files.split(' ').size() >= 2)
 		"""
 		samtools merge -f reads.rmdup.original.bam \
 			${bam_files}
