@@ -113,8 +113,14 @@ def set_key_for_group_tuple(ch) {
 
 def get_container(file_name) {
   parent = file(file_name).parent
-  old_parent = file(file_name).toRealPath().parent
-  container = "--bind ${parent},${old_parent}"
+  container = "--bind ${parent}"
+  if (file(file_name).exists()) {
+	old_parent = file(file_name).toRealPath().parent
+	if (old_parent != parent) {
+		container += ",${old_parent}"
+	}
+  } 
+  return container
 }
 
 
