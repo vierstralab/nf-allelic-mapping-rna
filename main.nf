@@ -511,8 +511,8 @@ workflow waspRealigning {
 		initial_read_counts = nodata
 			| mix(dedup_bam.map(it -> tuple(it[0], tuple(it[2], true))))
 			| groupTuple(size: 2)
-			| filter_grouped_channel
 			| view()
+			| filter_grouped_channel
 			| calcInitialReadCounts
 
 
