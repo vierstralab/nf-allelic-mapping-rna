@@ -364,7 +364,7 @@ process merge_bam_files {
 		"""
 	else
 		"""
-		ln -s ${bam_files} ${name}
+		ln -s ${bam_files} reads.passing.bam
 		samtools sort \
 			-@${task.cpus} \
 			-o ${name}  \
