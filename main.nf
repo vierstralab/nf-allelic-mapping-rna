@@ -378,7 +378,7 @@ process calc_initial_read_counts {
 	tag "${ag_number}"
 
 	input:
-		tuple val(ag_number), path(bam_file), path(bam_file_index)
+		tuple val(ag_number), path(bam_file), path(bam_file_index), path(filtered_sites_file), path(filtered_sites_file_index)
 
 	output:
 		tuple val(ag_number), path(name), path("${name}.tbi")
@@ -458,8 +458,9 @@ process add_snp_files_to_meta {
 workflow calcInitialReadCounts {
 	take:
 		data
+		snps_sites
 	main:
-		out = merge_bam_files(data) | calc_initial_read_counts
+		out = merge_bam_files(data) | join(snps_sites) | calc_initial_read_counts
 	emit:
 		out
 }
@@ -507,11 +508,11 @@ workflow waspRealigning {
 			| filter_grouped_channel
 			| merge_bam_files
 
-		initial_read_counts = nodata
+		d = nodata
 			| mix(dedup_bam.map(it -> tuple(it[0], tuple(it[2], true))))
 			| groupTuple(size: 2)
 			| filter_grouped_channel
-			| calcInitialReadCounts
+		initial_read_counts = calcInitialReadCounts(d, snps_sites)
 
 
 		out = indiv_ag_id_map 
