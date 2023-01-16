@@ -9,6 +9,7 @@ process align_reads {
 	containerOptions "${get_container(params.genome_fasta_file)} ${get_container(params.nuclear_chroms)} ${params.aligner == 'bowtie-chip' ? get_container(params.bowtie_idx) : ''}"
 	scratch true
 	tag "${ag_number}:${r_tag}"
+	cpus 3
 	// fastq1 is the same as fastq2 if r_tag == "se"
 	input:
 		tuple val(ag_number), val(r_tag), path(fastq1), path(fastq2)
@@ -86,13 +87,15 @@ process align_reads {
 				"""
 				bowtie2 -X2000 --mm -x ${params.bowtie_idx} --threads ${task.cpus} \
    		 			-1 ${fastq1} -2 ${fastq2} \
-		 			| samtools view -Su /dev/stdin | samtools sort - -o ${name}
+		 			| samtools view -Su /dev/stdin \
+					| samtools sort - -o ${name}
 				"""
 			} else {
 				"""
-				bowtie2 --mm -x ${params.bowtie_idx} --threads ${task.cpus} 
-					-U <(zcat -f ${fastq1})
-					| samtools view -Su /dev/stdin | samtools sort - -o ${name}
+				bowtie2 --mm -x ${params.bowtie_idx} --threads ${task.cpus} \
+					-U <(zcat -f ${fastq1}) \
+					| samtools view -Su /dev/stdin \
+					| samtools sort - -o ${name}
 				"""
 			};
 			break;
