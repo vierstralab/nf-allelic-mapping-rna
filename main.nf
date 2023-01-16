@@ -317,7 +317,7 @@ process wasp_filter_reads {
 	tag "${ag_id}:${r_tag}"
 
 	input:
-		tuple val(ag_number), val(r_tag), path(bam_file), path(initial_bam_file)
+		tuple val(ag_number), val(r_tag), path(bam_file), path(initial_bam_file), path(initial_bam_file_index)
 	
 	output:
 		tuple val(ag_number), path(name)
