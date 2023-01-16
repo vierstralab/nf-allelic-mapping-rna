@@ -477,6 +477,8 @@ workflow waspRealigning {
 			| combine(r_tags)
 			| split_reads
 			| filter { it[5].toInteger() > 0 }
+			| set_key_for_group_tuple
+
 		to_remap_reads_and_initial_bam = extract_remap_reads(split_reads, h5_tables)
 
 		dedup_bam = to_remap_reads_and_initial_bam.bamfile
