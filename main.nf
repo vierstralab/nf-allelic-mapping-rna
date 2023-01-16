@@ -114,7 +114,7 @@ def set_key_for_group_tuple(ch) {
   .transpose()
 }
 
-def filter_channel(ch) {
+def filter_grouped_channel(ch) {
 	ch.map(it -> tuple(it[0], it[1].filter { f -> f[1] }[0]))
 }
 
