@@ -481,7 +481,7 @@ workflow waspRealigning {
 			| combine(r_tags)
 			| split_reads
 			| branch {
-				files: it > 0
+				files: it[5] > 0
         		nodata: true
 			}
 		//tuple val(ag_number), val(indiv_id), val(r_tag), path(name), path("${name}.bai"), env(n_counts)
