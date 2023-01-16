@@ -115,8 +115,8 @@ def set_key_for_group_tuple(ch) {
 }
 
 def filter_grouped_channel(ch) {
-	filt_map = ch.map(it -> tuple(it[0],
-		it[1].findAll { f -> f[1] }.collect { f -> f[0] })
+	ch.map(it -> tuple(it[0],
+		it[1].findAll { f -> f[1] }.collect { element -> return element[0] })
 		)
 	filt_map
 }
