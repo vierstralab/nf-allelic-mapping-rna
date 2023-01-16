@@ -114,6 +114,10 @@ def set_key_for_group_tuple(ch) {
   .transpose()
 }
 
+def filter_channel(ch) {
+	ch.map(it -> tuple(it[0], it[1].filter { f -> f[1] }[0]))
+}
+
 def get_container(file_name) {
   parent = file(file_name).parent
   container = "--bind ${parent}"
@@ -233,7 +237,7 @@ process split_reads {
 	"""
 }
 
-process extract_remap_reads {
+process extract_to_remap_reads {
 	tag "${ag_number}:${r_tag}"
 	container "${params.container}"
 	cpus 2
@@ -473,26 +477,38 @@ workflow waspRealigning {
 		
 		samples = sagr.join(snps_sites, by: 0)
 		r_tags = Channel.of('pe', 'se')
-		split_reads = sagr
+		split_rs = sagr
 			| combine(r_tags)
 			| split_reads
-			| filter { it[5].toInteger() > 0 }
-			| set_key_for_group_tuple
+			| branch {
+				files: it > 0
+        		nodata: true
+			}
+		//tuple val(ag_number), val(indiv_id), val(r_tag), path(name), path("${name}.bai"), env(n_counts)
+		// tuple val(ag_number), path(name)
+		nodata = split_rs.nodata
+			| map(it -> tuple(it[0], tuple(it[3], false)))
 
-		to_remap_reads_and_initial_bam = extract_remap_reads(split_reads, h5_tables)
+		to_remap_reads_and_initial_bam = extract_to_remap_reads(split_rs.files, h5_tables)
 
 		dedup_bam = to_remap_reads_and_initial_bam.bamfile
 
-		filtered_bam = to_remap_reads_and_initial_bam.fastq
+		filtered_reads = to_remap_reads_and_initial_bam.fastq
 			| align_reads
 			| join(dedup_bam, by: [0, 1])
 			| wasp_filter_reads
-			| groupTuple()
+			| map(it -> tuple(it[0], tuple(it[1], true)))
+		
+		filtered_bam = nodata	
+			| concat(filtered_reads)
+			| groupTuple(size: 2)
+			| filter_grouped_channel
 			| merge_bam_files
 
-		initial_read_counts = dedup_bam 
-			| map(it -> tuple(it[0], it[2], it[3])) 
-			| groupTuple() 
+		initial_read_counts = nodata
+			| concat(dedup_bam.map(it -> tuple(it[0], tuple(it[2], true))))
+			| groupTuple(size: 2)
+			| filter_grouped_channel
 			| calcInitialReadCounts
 
 
