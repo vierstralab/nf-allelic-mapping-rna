@@ -116,8 +116,7 @@ def set_key_for_group_tuple(ch) {
 
 def filter_grouped_channel(ch) {
 	return ch.map(it -> tuple(it[0],
-		it[1].findAll { f -> f[1] }.collect { element -> return element[0] }
-		.each { k -> println k})
+		it[1].findAll { f -> f[1] }.collect { element -> return element[0] })
 		)
 }
 
@@ -352,7 +351,8 @@ process merge_bam_files {
 
 	script:
 	name = "${ag_number}.merged.bam"
-	if (bam_files.split(' ').size() >= 2)
+	
+	if (bam_files.size() >= 2)
 		"""
 		samtools merge -f reads.rmdup.original.bam \
 			${bam_files}
@@ -512,6 +512,7 @@ workflow waspRealigning {
 			| mix(dedup_bam.map(it -> tuple(it[0], tuple(it[2], true))))
 			| groupTuple(size: 2)
 			| filter_grouped_channel
+			| view()
 			| calcInitialReadCounts
 
 
