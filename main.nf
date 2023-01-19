@@ -476,7 +476,6 @@ workflow waspRealigning {
 		indiv_ag_id_map = sagr.map(it -> tuple(it[0], it[1]))
 		
 		snps_sites = filter_variants(indiv_ag_id_map)
-		merge_snv_files(snps_sites.map(it -> it[1]).collect(sort: true))
 		
 		samples = sagr.join(snps_sites, by: 0)
 		r_tags = Channel.of('pe', 'se')
@@ -523,6 +522,10 @@ workflow waspRealigning {
 			| groupTuple()
 			| merge_by_indiv
 		
+		snps_sites
+			| map(it -> it[1])
+			| collect(sort: true)
+			| merge_snv_files
 	emit:
 		out
 }
