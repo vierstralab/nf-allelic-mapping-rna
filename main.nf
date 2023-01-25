@@ -553,6 +553,7 @@ process fix {
 	tag "${bed_file.simpleName}"
 	container "${params.container}"
 	containerOptions "${get_container(params.dbsnp_file)}"
+	scratch true
 
 	input:
 		path bed_file
@@ -565,7 +566,9 @@ process fix {
 	"""
 	bcftools query -f "%CHROM\t%POS0\t%POS\t%REF\t%ALT\t%INFO/TOPMED\n" ${params.dbsnp_file} \
 		| sort-bed - \
-		| bedtools intersect -a stdin -b ${bed_file} -sorted -wa > dbsnp_annotations.bed.gz
+		| bedtools intersect -a stdin -b ${bed_file} -sorted -wa \
+		| uniq \
+		| bgzip -c > dbsnp_annotations.bed.gz
 	python3 $moduleDir/bin/fix.py dbsnp_annotations.bed.gz ${bed_file} ${name}
 	"""
 

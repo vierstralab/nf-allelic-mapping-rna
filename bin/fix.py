@@ -37,4 +37,4 @@ if __name__ == '__main__':
 
     snps_to_annotate = pd.read_table(sys.argv[2])
     df = main(snps_to_annotate, dbsnp_annotation)
-    df.to_csv(sys.argv[3], sep='\t', index=False, header=None)
+    df.to_csv(sys.argv[3], sep='\t', index=False)
