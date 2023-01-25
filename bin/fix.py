@@ -13,7 +13,7 @@ def main(snps, annotations):
                            (annotations['topmed'].notna()) &
                            (annotations['alts'].apply(alt_str_has_single)) &
                            (annotations['ref'].isin(nucleotides))
-    ].drop_duplicates(['#chr', 'ID', 'end', 'ref', 'alts', 'topmed']).value_counts(['#chr', 'start', 'end', 'ref'])
+    ].drop_duplicates(['#chr', 'end', 'ref', 'alts', 'topmed']).value_counts(['#chr', 'start', 'end', 'ref'])
     repeated = repeated[repeated > 1].reset_index()[['#chr', 'start', 'end', 'ref']]
     repeated = annotations.merge(repeated, on=['#chr', 'start', 'end', 'ref'])
 
