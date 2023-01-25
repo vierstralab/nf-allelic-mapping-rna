@@ -564,7 +564,7 @@ process sort_and_extract_dbsnp {
 	sort-bed out.bed > sorted.bed
 
 	bcftools query -f "%CHROM\t%POS0\t%POS\t%REF\t%ALT\t%INFO/TOPMED\n" ${params.dbsnp_file} \
-		| sort-bed -
+		| sort-bed - \
 		| bedtools intersect -a stdin -b sorted.bed -sorted -wa \
 		| uniq \
 		| bgzip -c > ${name}
