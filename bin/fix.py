@@ -5,7 +5,7 @@ nucleotides = ('A', 'T', 'G', 'C')
 
 
 def alt_str_has_single(alts_str):
-    return sum([(len(alt) == 1) & alt in nucleotides for alt in alts_str.split(',')]) > 0
+    return sum([(len(alt) == 1) and (alt in nucleotides) for alt in alts_str.split(',')]) > 0
 
 
 def main(snps, annotations):
