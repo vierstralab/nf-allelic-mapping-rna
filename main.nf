@@ -562,7 +562,7 @@ process fix {
 	
 	script:
 	name = "${bed_file.simpleName}.fixed.bed"
-	if (bed_file.countLines())
+	if (bed_file.countLines() > 1)
 		"""
 		bcftools query -f "%CHROM\t%POS0\t%POS\t%REF\t%ALT\t%INFO/TOPMED\n" ${params.dbsnp_file} \
 			| bedtools intersect -a stdin -b ${bed_file} -sorted -wa \
