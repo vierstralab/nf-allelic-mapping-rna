@@ -13,18 +13,22 @@ def main(snps, annotations):
                            (annotations['topmed'].notna()) &
                            (annotations['alts'].apply(alt_str_has_single)) &
                            (annotations['ref'].isin(nucleotides))
-    ].value_counts(['#chr', 'start', 'end', 'ref'])
+    ].drop_duplicates(['#chr', 'ID', 'end', 'ref', 'alts', 'topmed']).value_counts(['#chr', 'start', 'end', 'ref'])
     repeated = repeated[repeated > 1].reset_index()[['#chr', 'start', 'end', 'ref']]
     repeated = annotations.merge(repeated, on=['#chr', 'start', 'end', 'ref'])
-    print(repeated[['#chr', 'end', 'ref', 'alts', 'topmed']].head(20))
+
     repeated = repeated.groupby(['#chr', 'start', 'end', 'ref'])['alts'].apply(
         lambda alts_on_same_pos:
         sum([alt_str_has_single(alts_str) for alts_str in alts_on_same_pos]) > 1
     )
-    print(repeated[repeated > 0])
+
     assert repeated.sum() == 0
     
-    annotations = annotations[annotations['alts'].apply(alt_str_has_single)]
+    annotations = annotations[(annotations['topmed'] != '.') &
+                           (annotations['topmed'].notna()) &
+                           (annotations['alts'].apply(alt_str_has_single)) &
+                           (annotations['ref'].isin(nucleotides))
+    ]
 
     assert annotations.value_counts(['#chr', 'start', 'end', 'ref']).max() == 1
 
