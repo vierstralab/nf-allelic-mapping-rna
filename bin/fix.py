@@ -1,15 +1,18 @@
 import pandas as pd
 import sys
 
+nucleotides = ('A', 'T', 'G', 'C')
+
+
 def alt_str_has_single(alts_str):
-    return sum([len(alt) == 1 for alt in alts_str.split(',')]) > 0
+    return sum([(len(alt) == 1) & alt in nucleotides for alt in alts_str.split(',')]) > 0
 
 
 def main(snps, annotations):
     repeated = annotations[(annotations['topmed'] != '.') &
                            (annotations['topmed'].notna()) &
                            (annotations['alts'].apply(alt_str_has_single)) &
-                           (annotations['ref'].apply(lambda x: len(x) == 1))
+                           (annotations['ref'].isin(nucleotides))
     ].value_counts(['#chr', 'start', 'end', 'ref'])
     repeated = repeated[repeated > 1].reset_index()[['#chr', 'start', 'end', 'ref']]
     repeated = annotations.merge(repeated, on=['#chr', 'start', 'end', 'ref'])
