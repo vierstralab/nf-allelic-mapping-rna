@@ -551,8 +551,7 @@ params.dbsnp_file = '/home/jvierstra/data/dbSNP/v151.hg38/All_20180418.fixed-chr
 process fix {
 	publishDir "${params.outdir}/fixed"
 	tag "${bed_file.simpleName}"
-	container "${params.container}"
-	containerOptions "${get_container(params.dbsnp_file)}"
+	conda "/home/sabramov/miniconda3/envs/babachi"
 	scratch true
 
 	input:
