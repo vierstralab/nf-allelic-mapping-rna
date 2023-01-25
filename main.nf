@@ -576,6 +576,7 @@ process fix {
 
 workflow fixIndivMergedFiles {
 	indiv_samples_file = Channel.fromPath(
-		"${params.outdir}/indiv_merged_files/*.snps.bed"
-	).map(it -> file(it)) | fix
+		"${params.indiv_files}/*.snps.bed"
+	)
+	| map(it -> file(it)) | fix
 }
