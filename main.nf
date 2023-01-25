@@ -547,7 +547,29 @@ workflow {
 
 
 params.dbsnp_file = '/home/jvierstra/data/dbSNP/v151.hg38/All_20180418.fixed-chrom.vcf.gz'
+process sort_and_extract_dbsnp {
+	
+	conda "/home/sabramov/miniconda3/envs/babachi"
+	input:
+		path bed_files
+	output:
+		path name
 
+	script:
+	name = 'dbsnp_annotations.bed.gz'
+	"""
+	for file in "${bed_files}"; do
+		cat ${bed_files} >> out.bed
+	done;
+	sort-bed out.bed > sorted.bed
+
+	bcftools query -f "%CHROM\t%POS0\t%POS\t%REF\t%ALT\t%INFO/TOPMED\n" ${params.dbsnp_file} \
+		| sort-bed -
+		| bedtools intersect -a stdin -b sorted.bed -sorted -wa \
+		| uniq \
+		| bgzip -c > ${name}
+	"""
+}
 process fix {
 	publishDir "${params.outdir}/fixed"
 	tag "${bed_file.simpleName}"
@@ -556,6 +578,7 @@ process fix {
 
 	input:
 		path bed_file
+		path dbsnp_annotations
 	
 	output:
 		path name
@@ -566,12 +589,8 @@ process fix {
 	if [[ `wc -l < ${bed_file}` -le 1 ]]; then
 		cp ${bed_file} ${name}
 	else
-		bcftools query -f "%CHROM\t%POS0\t%POS\t%REF\t%ALT\t%INFO/TOPMED\n" ${params.dbsnp_file} \
-			| sort-bed -
-			| bedtools intersect -a stdin -b ${bed_file} -sorted -wa \
-			| uniq \
-			| bgzip -c > dbsnp_annotations.bed.gz
-		python3 $moduleDir/bin/fix.py dbsnp_annotations.bed.gz ${bed_file} ${name}
+
+		python3 $moduleDir/bin/fix.py ${dbsnp_annotations} ${bed_file} ${name}
 	fi
 	"""
 
@@ -581,5 +600,7 @@ workflow fixIndivMergedFiles {
 	indiv_samples_file = Channel.fromPath(
 		"${params.indiv_files}/*.snps.bed"
 	)
-	| map(it -> file(it)) | fix
+	| map(it -> file(it))
+	dbsnp = sort_and_extract_dbsnp(indiv_samples_file.collect(sort: true))
+	fix(indiv_samples_file, dbsnp)
 }
