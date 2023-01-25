@@ -562,18 +562,18 @@ process fix {
 	
 	script:
 	name = "${bed_file.simpleName}.fixed.bed"
-	if (bed_file.countLines() > 1)
-		"""
+	"""
+	if [[ `wc -l < snps.common.bed` -le 1 ]]; then
+		cp ${bed_file} ${name}
+	else
 		bcftools query -f "%CHROM\t%POS0\t%POS\t%REF\t%ALT\t%INFO/TOPMED\n" ${params.dbsnp_file} \
 			| bedtools intersect -a stdin -b ${bed_file} -sorted -wa \
 			| uniq \
 			| bgzip -c > dbsnp_annotations.bed.gz
 		python3 $moduleDir/bin/fix.py dbsnp_annotations.bed.gz ${bed_file} ${name}
-		"""
-	else
-		"""
-		cp ${bed_file} ${name}
-		"""
+	fi
+	"""
+
 }
 
 workflow fixIndivMergedFiles {
