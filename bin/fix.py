@@ -35,6 +35,7 @@ def main(snps, annotations):
     merged = snps.merge(annotations, 
         on=['#chr', 'start', 'end', 'ref'],
         how='left')
+    print(merged.columns)
     merged['RAF'] = merged['topmed'].apply(lambda x: '.' if pd.isna(x) or x == '.'
                                            else float(x.split(',')[0]))
     merged['AAF'] = merged.apply(
