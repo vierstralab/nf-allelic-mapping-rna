@@ -14,6 +14,7 @@ def main(snps, annotations):
         lambda alts_on_same_pos:
         sum([alt_str_has_single(alts_str) for alts_str in alts_on_same_pos]) > 1
     )
+    print(repeated[repeated > 0])
     assert repeated.sum() == 0
     
     annotations = annotations[annotations['alts'].apply(alt_str_has_single)]
