@@ -49,6 +49,6 @@ if __name__ == '__main__':
     dbsnp_annotation = pd.read_table(sys.argv[1],
         header=None, names=['#chr', 'start', 'end', 'ref', 'alts', 'topmed'])
 
-    snps_to_annotate = pd.read_table(sys.argv[2])
+    snps_to_annotate = pd.read_table(sys.argv[2], header=None, names=['#chr', 'start', 'end', 'ref', 'alts'])
     df = main(snps_to_annotate, dbsnp_annotation)
     df.to_csv(sys.argv[3], sep='\t', index=False, header=None)
