@@ -559,7 +559,7 @@ process sort_and_extract_dbsnp {
 	name = 'dbsnp_annotations.bed.gz'
 	"""
 	for file in "${bed_files}"; do
-		cat ${bed_files} | grep -v '#' >> out.bed
+		cat \$file | grep -v '#' >> out.bed
 	done;
 	sort-bed out.bed > sorted.bed
 
