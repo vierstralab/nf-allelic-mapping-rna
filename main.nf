@@ -543,3 +543,36 @@ workflow {
 	waspRealigning(set_key_for_group_tuple(samples_aggregations))
 	add_snp_files_to_meta() 
 }
+
+
+
+params.dbsnp_file = '/home/jvierstra/data/dbSNP/v151.hg38/All_20180418.fixed-chrom.vcf.gz'
+
+process fix {
+	publishDir "${params.outdir}/fixed"
+	tag "${bed_file.simpleName}"
+	container "${params.container}"
+	containerOptions "${get_container(params.dbsnp_file)}"
+
+	input:
+		path bed_file
+	
+	output:
+		path name
+	
+	script:
+	name = "${bed_file.simpleName}.fixed.bed"
+	"""
+	bcftools query -f "%CHROM\t%POS0\t%POS\t%REF\t%ALT\t%INFO/TOPMED\n" ${params.dbsnp_file} \
+		| sort-bed - \
+		| bedtools intersect -a stdin -b ${bed_file} -sorted -wa > dbsnp_annotations.bed.gz
+	python3 $moduleDir/bin/fix.py dbsnp_annotations.bed.gz ${bed_file} ${name}
+	"""
+
+}
+
+workflow fixIndivMergedFiles {
+	indiv_samples_file = Channel.fromPath(
+		"${params.outdir}/indiv_merged_files/*.snps.bed"
+	).map(it -> file(it)) | fix
+}
