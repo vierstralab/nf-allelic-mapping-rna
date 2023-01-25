@@ -563,7 +563,7 @@ process fix {
 	script:
 	name = "${bed_file.simpleName}.fixed.bed"
 	"""
-	if [[ `wc -l < snps.common.bed` -le 1 ]]; then
+	if [[ `wc -l < ${bed_file}` -le 1 ]]; then
 		cp ${bed_file} ${name}
 	else
 		bcftools query -f "%CHROM\t%POS0\t%POS\t%REF\t%ALT\t%INFO/TOPMED\n" ${params.dbsnp_file} \
