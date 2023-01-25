@@ -7,7 +7,9 @@ def alt_str_has_single(alts_str):
 
 def main(snps, annotations):
     repeated = annotations[(annotations['topmed'] != '.') &
-                           (annotations['topmed'].notna())
+                           (annotations['topmed'].notna()) &
+                           (annotations['alts'].apply(alt_str_has_single)) &
+                           (annotations['ref'].apply(lambda x: len(x) == 1))
     ].value_counts(['#chr', 'start', 'end', 'ref'])
     repeated = repeated[repeated > 1].reset_index()[['#chr', 'start', 'end', 'ref']]
     repeated = annotations.merge(repeated, on=['#chr', 'start', 'end', 'ref'])
