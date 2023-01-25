@@ -565,7 +565,6 @@ process fix {
 	if (bed_file.countLines())
 		"""
 		bcftools query -f "%CHROM\t%POS0\t%POS\t%REF\t%ALT\t%INFO/TOPMED\n" ${params.dbsnp_file} \
-			| sort-bed - \
 			| bedtools intersect -a stdin -b ${bed_file} -sorted -wa \
 			| uniq \
 			| bgzip -c > dbsnp_annotations.bed.gz
