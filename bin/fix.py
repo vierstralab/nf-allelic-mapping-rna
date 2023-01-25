@@ -5,9 +5,9 @@ def alt_str_has_single(alts_str):
     return [len(alt) == 1 for alt in alts_str.split(',')].sum() > 0
 
 
-def main(snps, annotations,):
+def main(snps, annotations):
     repeated = annotations.value_counts(['#chr', 'start', 'end', 'ref'])
-    repeated = repeated[repeated > 1].reset_index()['#chr', 'start', 'end', 'ref']
+    repeated = repeated[repeated > 1].reset_index()[['#chr', 'start', 'end', 'ref']]
     repeated = annotations.merge(repeated, on=['#chr', 'start', 'end', 'ref'])
 
     repeated = repeated.groupby(['#chr', 'start', 'end', 'ref'])['alts'].apply(
