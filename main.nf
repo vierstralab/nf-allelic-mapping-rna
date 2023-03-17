@@ -44,7 +44,7 @@ process align_reads {
 				bwa sampe -n 10 -a 750 \
 					${params.genome_fasta_file} \
 					pe.reads.rmdup.sorted.remap.fq1.sai pe.reads.rmdup.sorted.remap.fq2.sai \
-					pe.reads.rmdup.sorted.remap.fq1.gz pe.reads.rmdup.sorted.remap.fq2.gz \
+					${fastq1} ${fastq2} \
 					| samtools view -b --reference ${params.genome_fasta_file} - \
 					> pe.reads.remapped.bam
 
@@ -67,7 +67,7 @@ process align_reads {
 				bwa samse -n 10 \
 					${params.genome_fasta_file} \
 					se.reads.rmdup.sorted.remap.fq.sai \
-					se.reads.rmdup.sorted.remap.fq.gz  \
+					${fastq1}  \
 					| samtools view -b --reference ${params.genome_fasta_file} - \
 					> se.reads.remapped.bam
 
@@ -76,8 +76,9 @@ process align_reads {
 					se.reads.remapped.marked.bam \
 					${params.nuclear_chroms}
 				samtools sort \
-						-@${task.cpus} -l0 se.reads.remapped.marked.bam \
-					| samtools view -b -F 512 - \
+					-@${task.cpus} \
+					-l0 se.reads.remapped.marked.bam \
+				 	| samtools view -b -F 512 - \
 					> ${name}
 				"""
 			};
@@ -100,7 +101,7 @@ process align_reads {
 			};
 			break;
 		default: 
-			error "Aligning with ${params.aligner} is not implemented. You can add it in 'align_reads' process"
+			error "Aligning with ${params.aligner} is not implemented. You can add it to 'align_reads' process"
 			break;
 	}
 }
