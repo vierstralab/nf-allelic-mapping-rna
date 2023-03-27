@@ -343,6 +343,7 @@ process merge_bam_files {
 	container "${params.container}"
 	scratch true
 	tag "${ag_number}"
+	publishDir "${params.outdir}/filtered_bam"
 
 	input:
 		tuple val(ag_number), path(bam_files)
