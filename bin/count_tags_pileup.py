@@ -4,39 +4,90 @@
 # --add filters/etc. as option
 import sys
 import logging
-
-from argparse import ArgumentParser
-
 import numpy as np
+import pandas as pd
+from argparse import ArgumentParser
 import pysam
 
-class snv:
-	"""chrom, start, end, id, ref, alt, gt, extra fields
-		GT encoded as either 0/1 or with pipe 0|0
-	"""
-	def __init__(self, line):
-		fields = line.strip().split()
-		self.contig = fields[0]
-		self.start = int(fields[1])
-		self.end = int(fields[2])
-		self.id = fields[3]
-		self.ref = fields[4]
-		self.alt = fields[5]
-		self.gt = sum(map(int, fields[6].replace('|','/').split('/')))
-		#self.line = line
+logging.basicConfig(stream = sys.stderr, level='WARNING')
 
-	def __str__(self):
+def transform_af(value):
+	if value == '.' or value == 'None' or value is None:
+		return None
+	else:
+		return float(value)
 
-		if self.gt == 0:
-			gt_str = '0/0'
-		elif self.gt == 1:
-			gt_str = '0/1'
-		else:
-			gt_str = '1/1'
 
-		return f'{self.contig}\t{self.start}\t{self.end}\t{self.id}\t{self.ref}\t{self.alt}\t{gt_str}'
+class SNV:
+    """chrom, start, end, id, ref, alt, maf, gt
+        GT encoded as either 0/1 or with pipe 0|0
+    """
+    
+    __class_fields = ['contig', 'start', 'end', 'id', 'ref', 'alt', 'aaf', 'raf', 'gt', 'gq', 'n_original_reads']
+    def __init__(self, fields):
+        for field_name, field_value in zip(self.__class_fields, fields):
+            setattr(self, field_name, field_value)
+        self.start = int(self.start)
+        self.end = int(self.end)
+        self.aaf = transform_af(self.aaf)
+        self.raf = transform_af(self.raf)
+	
+        self.is_het = sum(map(int, self.gt.replace('|','/').split('/'))) == 1
+        try: 
+            self.n_original_reads = int(self.n_original_reads)
+        except AttributeError:
+            pass
+       
+    def to_list(self):
+        return [getattr(self, field) for field in self.__class_fields[:-2]]
 
-logging.basicConfig(stream = sys.stderr, level = 30)
+    def __repr__(self):
+        return '\t'.join(map(str, self.to_list()))
+
+    @classmethod
+    def from_str(cls, line: str):
+        return cls(line.strip('\n').split('\t'))
+    
+    @classmethod
+    def get_fields(cls):
+        return cls.__class_fields
+
+def reads_to_dict(vars_file_path, bam_file_path, chrom):
+    kwargs = {} if chrom is None else {'reference': chrom} 
+    with pysam.TabixFile(vars_file_path) as vars_file, pysam.AlignmentFile(bam_file_path, "rb") as sam_file: 
+        for line in vars_file.fetch(**kwargs):
+            variant = SNV.from_str(line)
+            if not variant.is_het:
+                continue
+            reads_1, reads_2, read_pairs = get_reads(variant, sam_file)
+            yield variant, reads_1, reads_2, read_pairs
+
+
+def get_reads(variant, sam_file):
+
+	reads_1 = {}
+	reads_2 = {}
+
+	# Go into BAM file and get the reads
+	for pileupcolumn  in sam_file.pileup(variant.contig, variant.start, variant.end,
+     maxdepth=10000, truncate=True, stepper="nofilter"):
+
+		for pileupread in pileupcolumn.pileups:
+
+			if pileupread.is_del or pileupread.is_refskip:
+				print('refskip or del ', pileupread.alignment.query_name, file=sys.stderr)
+				continue
+
+			if pileupread.alignment.is_read1:
+				reads_1[pileupread.alignment.query_name] = pileupread
+			else:
+				reads_2[pileupread.alignment.query_name] = pileupread
+
+	# All reads that overlap SNP; unqiue set
+	read_pairs = set(reads_1.keys()) | set(reads_2.keys())
+
+	return reads_1, reads_2, read_pairs
+
 
 def parse_options(args):
 
@@ -48,11 +99,15 @@ def parse_options(args):
 	parser.add_argument("var_file", metavar = "var_file", type = str,
 						help = "Path to variant file (must have corresponding index)")
 
-	parser.add_argument("original_bam_file", metavar = "original_bam_file", type = str, 
-						help = "Path to BAM-format tag sequence file")
-
 	parser.add_argument("remapped_bam_file", metavar = "remapped_bam_file", type = str, 
 						help = "Path to BAM-format tag sequence file")
+	
+	parser.add_argument("--original_dedup_cover", metavar = "counts from original deduped bam file",
+						type = str, default=None,
+						help = "Path to bed format file with total read counts")
+	
+	parser.add_argument('--only_coverage', default=False, action="store_true",
+						help="Specify to emit only coverage for the SNPs")
 
 	return parser.parse_args(args)
 
@@ -145,107 +200,72 @@ def check_alleles(pileupread, ref_allele, nonref_allele):
 
 	return True
 
-def get_reads(variant, sam_file):
-
-	reads_1 = {}
-	reads_2 = {}
-
-	# Go into BAM file and get the reads
-	for pileupcolumn  in sam_file.pileup(variant.contig, variant.start, variant.start+1, maxdepth=10000, truncate=True, stepper="nofilter"):
-
-		for pileupread in pileupcolumn.pileups:
-
-			if pileupread.is_del or pileupread.is_refskip:
-				continue
-
-			if pileupread.alignment.is_read1:
-				reads_1[pileupread.alignment.query_name] = pileupread
-			else:
-				reads_2[pileupread.alignment.query_name] = pileupread
-
-	# All reads that overlap SNP; unqiue set
-	read_pairs = set(reads_1.keys()) | set(reads_2.keys())
-
-	return reads_1, reads_2, read_pairs
-
-def main(argv = sys.argv[1:]):
-
-	args = parse_options(argv)
-
-	vars_file = pysam.TabixFile(args.var_file)
-	original_sam_file = pysam.AlignmentFile(args.original_bam_file, "rb" )
-	remapped_sam_file = pysam.AlignmentFile(args.remapped_bam_file, "rb" )
-
-	for line in vars_file.fetch(reference=args.chrom):
-
-		#print rec.contig, rec.start, rec.ref, rec.ref
-
-		variant = snv(line)
-		ref = variant.ref
-		alt = variant.alt
-
-		# must be heterozygous
-		if variant.gt != 1:
-			continue
-
-		n_ref = n_alt = n_failed = n_failed_bias = n_failed_mapping = n_failed_genotyping = 0
-
+def check_reads(reads_1, reads_2, unique_reads, ref, alt):
+	n_ref = n_alt = n_failed_bias = n_failed_genotyping = 0
+	for read in unique_reads:
 		try:
+
+			read1 = reads_1.get(read, None)
+			check_alleles(read1, ref, alt) # only returns true if read exists
+			check_bias(read1) # only returns true if read exists
+			read1_allele = get_base_call(read1) # returns None if read doesn't exist
 			
-			_, _, read_pairs = get_reads(variant, original_sam_file)
-			n_original_reads = len(read_pairs)
+			read2 = reads_2.get(read, None)
+			check_alleles(read2, ref, alt) # only returns true if read exists
+			check_bias(read2) # only returns true if read exists
+			read2_allele = get_base_call(read2) # returns None if read doesn't exist
 
-			reads_1, reads_2, read_pairs = get_reads(variant, remapped_sam_file)
-			n_remapped_reads = len(read_pairs)
+			read_allele = read1_allele or read2_allele
 
-			for read in read_pairs:
+			# No ba errors
+			if read_allele == ref:
+				n_ref += 1
+			elif read_allele == alt:
+				n_alt += 1
+			else:
+				raise ReadGenotypeError()
 
-				try:
+		except ReadBiasError as e:
+			n_failed_bias += 1
+			logging.debug("Failed bias: " + read)
+			continue
+		except ReadGenotypeError as e:
+			n_failed_genotyping += 1
+			logging.debug("Failed genotyping: " + read)
+			continue
+	return n_ref, n_alt, n_failed_bias, n_failed_genotyping
 
-					read1 = reads_1.get(read, None)
-					check_alleles(read1, ref, alt) # only returns true if read exists
-					check_bias(read1) # only returns true if read exists
-					read1_allele = get_base_call(read1) # returns None if read doesn't exist
-					
-					read2 = reads_2.get(read, None)
-					check_alleles(read2, ref, alt) # only returns true if read exists
-					check_bias(read2) # only returns true if read exists
-					read2_allele = get_base_call(read2) # returns None if read doesn't exist
+	
+def main(argv = sys.argv[1:]):
+	args = parse_options(argv)
+	if args.original_dedup_cover is not None:
+		counts_dict = {}
+		with pysam.TabixFile(args.original_dedup_cover) as f:
+			for line in f.fetch():
+				line_arr = line.strip('\n').split('\t')
+				counts = int(line_arr[-1])
+				key = '\t'.join(line_arr[:-1])
+				counts_dict[key] = counts
+	else:
+		counts_dict = None
+	for variant, reads_1, reads_2, read_pairs in reads_to_dict(args.var_file, args.remapped_bam_file, args.chrom):
+		n_remapped_reads = len(read_pairs)
+		variant_str = str(variant)
+		if args.only_coverage:
+			print(variant_str, n_remapped_reads, sep='\t')
+		else:
+			n_ref, n_alt, n_failed_bias, n_failed_genotyping = check_reads(reads_1, reads_2,
+																read_pairs, variant.ref, variant.alt)
+			
+			if counts_dict is None:
+				n_original_reads = variant.n_original_reads
+			else:
+				n_original_reads = counts_dict[variant_str]
+			n_failed_mapping = n_original_reads - n_remapped_reads
 
-					read_allele = read1_allele or read2_allele
-
-					# No ba errors
-					if read_allele == ref:
-						n_ref += 1
-					elif read_allele == alt:
-						n_alt += 1
-					else:
-						raise ReadGenotypeError()
-
-				except ReadBiasError as e:
-					n_failed_bias += 1
-					n_failed += 1
-					logging.debug("Failed bias: " + read)
-					continue
-				except ReadGenotypeError as e:
-					n_failed_genotyping += 1
-					n_failed += 1
-					logging.debug("Failed genotyping: " + read)
-					continue
-
-		except KeyboardInterrupt:
-			sys.exit(1)
-		
-		n_failed_mapping = n_original_reads - n_remapped_reads
-
-		print("%s\t%d\t%d\t%d\t%d\t%d\t%d" % (str(variant), n_ref, n_alt, n_original_reads, n_failed_mapping, n_failed_genotyping, n_failed_bias))
-				
-	original_sam_file.close()
-	remapped_sam_file.close()
-	vars_file.close()
-
-	return 0
+			print(variant_str, n_ref, n_alt, n_original_reads, n_failed_mapping,
+			n_failed_genotyping, n_failed_bias, sep='\t')
     
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
 

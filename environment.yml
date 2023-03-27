@@ -1,0 +1,17 @@
+name: babachi
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.8
+  - pysam
+  - bedops
+  - pandas
+  - bcftools=1.15
+  - pyfaidx
+  - bwa
+  - pytables
+  - samtools=1.15
+  - bowtie2
+prefix: /home/sabramov/miniconda3/envs/babachi
