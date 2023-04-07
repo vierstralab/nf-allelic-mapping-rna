@@ -10,7 +10,7 @@ bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
 bwa samse -n 10 \
     ${params.genome_fasta_file} \
     se.reads.rmdup.sorted.remap.fq.sai \
-    se.reads.rmdup.sorted.remap.fq.gz  \
+    ${fastq1}  \
     | samtools view -b --reference ${params.genome_fasta_file} - \
     > se.reads.remapped.bam
 
@@ -19,6 +19,7 @@ python3 $moduleDir/bin/filter_reads.py \
     se.reads.remapped.marked.bam \
     ${params.nuclear_chroms}
 samtools sort \
-        -@${task.cpus} -l0 se.reads.remapped.marked.bam \
+    -@${task.cpus} \
+    -l0 se.reads.remapped.marked.bam \
     | samtools view -b -F 512 - \
     > ${name}

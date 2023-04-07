@@ -37,7 +37,7 @@ process align_reads {
 			template r_tag == 'pe' ? 'bowtie2_pe.sh' : 'bowtie2_se.sh'
 			break;
 		default: 
-			error "Aligning with ${params.aligner} is not implemented. You can add it in 'align_reads' process"
+			error "Aligning with ${params.aligner} is not implemented. You can add it to 'align_reads' process"
 			break;
 	}
 }
@@ -279,6 +279,7 @@ process merge_bam_files {
 	container "${params.container}"
 	scratch true
 	tag "${ag_number}"
+	publishDir "${params.outdir}/filtered_bam"
 
 	input:
 		tuple val(ag_number), path(bam_files)
