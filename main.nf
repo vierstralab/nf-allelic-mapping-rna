@@ -31,73 +31,10 @@ process align_reads {
 	switch(params.aligner) {
 		case 'bwa-altius-dnase':
 			// PE reads alignment
-			if (r_tag == 'pe') {
-				"""
-				bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
-					${fastq1} \
-				> pe.reads.rmdup.sorted.remap.fq1.sai
-
-				bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
-					${fastq2} \
-				> pe.reads.rmdup.sorted.remap.fq2.sai
-
-				bwa sampe -n 10 -a 750 \
-					${params.genome_fasta_file} \
-					pe.reads.rmdup.sorted.remap.fq1.sai pe.reads.rmdup.sorted.remap.fq2.sai \
-					pe.reads.rmdup.sorted.remap.fq1.gz pe.reads.rmdup.sorted.remap.fq2.gz \
-					| samtools view -b --reference ${params.genome_fasta_file} - \
-					> pe.reads.remapped.bam
-
-				python3 $moduleDir/bin/filter_reads.py \
-					pe.reads.remapped.bam \
-					pe.reads.remapped.marked.bam \
-					${params.nuclear_chroms}
-
-				samtools sort \
-					-@${task.cpus} -l0 pe.reads.remapped.marked.bam \
-					| samtools view -b -F 512 - \
-					> ${name}
-				""" 
-			} else {
-				// SE reads alignment
-				"""
-				bwa aln -Y -l 32 -n 0.04 -t ${task.cpus} ${params.genome_fasta_file} \
-					${fastq1} > se.reads.rmdup.sorted.remap.fq.sai
-
-				bwa samse -n 10 \
-					${params.genome_fasta_file} \
-					se.reads.rmdup.sorted.remap.fq.sai \
-					se.reads.rmdup.sorted.remap.fq.gz  \
-					| samtools view -b --reference ${params.genome_fasta_file} - \
-					> se.reads.remapped.bam
-
-				python3 $moduleDir/bin/filter_reads.py \
-					se.reads.remapped.bam \
-					se.reads.remapped.marked.bam \
-					${params.nuclear_chroms}
-				samtools sort \
-						-@${task.cpus} -l0 se.reads.remapped.marked.bam \
-					| samtools view -b -F 512 - \
-					> ${name}
-				"""
-			};
+			template r_tag == 'pe' ? 'bwa_aln_pe.sh' : 'bwa_aln_se.sh'
 			break;
 		case "bowtie-chip":
-			if (r_tag == 'pe') {
-				"""
-				bowtie2 -X2000 --mm -x ${params.bowtie_idx} --threads ${task.cpus} \
-   		 			-1 ${fastq1} -2 ${fastq2} \
-		 			| samtools view -Su /dev/stdin \
-					| samtools sort - -o ${name}
-				"""
-			} else {
-				"""
-				bowtie2 --mm -x ${params.bowtie_idx} --threads ${task.cpus} \
-					-U <(zcat -f ${fastq1}) \
-					| samtools view -Su /dev/stdin \
-					| samtools sort - -o ${name}
-				"""
-			};
+			template r_tag == 'pe' ? 'bowtie2_pe.sh' : 'bowtie2_se.sh'
 			break;
 		default: 
 			error "Aligning with ${params.aligner} is not implemented. You can add it in 'align_reads' process"
