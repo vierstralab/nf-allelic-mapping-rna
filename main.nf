@@ -31,10 +31,10 @@ process align_reads {
 	switch(params.aligner) {
 		case 'bwa-altius-dnase':
 			// PE reads alignment
-			template r_tag == 'pe' ? 'bwa_aln_pe.sh' : 'bwa_aln_se.sh'
+			template (r_tag == 'pe' ? 'bwa_aln_pe.sh' : 'bwa_aln_se.sh')
 			break;
 		case "bowtie-chip":
-			template r_tag == 'pe' ? 'bowtie2_pe.sh' : 'bowtie2_se.sh'
+			template (r_tag == 'pe' ? 'bowtie2_pe.sh' : 'bowtie2_se.sh')
 			break;
 		default: 
 			error "Aligning with ${params.aligner} is not implemented. You can add it to 'align_reads' process"
