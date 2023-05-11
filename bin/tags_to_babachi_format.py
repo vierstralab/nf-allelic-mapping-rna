@@ -13,7 +13,7 @@ def main(in_file):
             variant = SNV(split_line[:-6])
             n_ref, n_alt, n_original_reads, n_failed_mapping, n_failed_genotyping, n_failed_bias = map(int, split_line[-6:])
             assert n_original_reads == n_alt + n_ref + n_failed_bias + n_failed_genotyping + n_failed_mapping
-            if min(n_ref, n_alt) < 5:
+            if not variant.is_het:
                 continue
             print('\t'.join(map(str, [*split_line[:6], n_ref, n_alt, name, variant.aaf, variant.raf, n_failed_mapping / n_original_reads])))
 
