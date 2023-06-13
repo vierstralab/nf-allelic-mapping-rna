@@ -470,11 +470,12 @@ workflow waspRealigning {
 
 
 workflow {
-	samples_aggregations = Channel
-		.fromPath(params.samples_file)
-		.splitCsv(header:true, sep:'\t')
-		.map(row -> tuple(row.indiv_id, row.ag_id, file(row.bam_file), file("${row.bam_file}.crai")))
-		.unique { it[1] }
+	samples_aggregations = Channel.fromPath(params.samples_file)
+		| splitCsv(header:true, sep:'\t')
+		| map(row -> tuple(row.indiv_id, row.ag_id, file(row.bam_file), file("${row.bam_file}.crai")))
+		| filter { !it[0].isEmpty() }
+		| unique { it[1] }
+
 	indivs_count = samples_aggregations.map(it -> it[0]).unique().count().view {
 		it -> """There are ${it} unique INDIV_IDs in the ${params.samples_file}. Please, check that they correspond to IDs in ${params.genotype_file}"""
 	}
