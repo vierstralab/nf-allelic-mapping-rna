@@ -473,7 +473,6 @@ workflow {
 	samples_aggregations = Channel.fromPath(params.samples_file)
 		| splitCsv(header:true, sep:'\t')
 		| map(row -> tuple(row.indiv_id, row.ag_id, file(row.bam_file), file("${row.bam_file}.crai")))
-		| filter { !it[0].isEmpty() }
 		| unique { it[1] }
 
 	indivs_count = samples_aggregations.map(it -> it[0]).unique().count().view {
