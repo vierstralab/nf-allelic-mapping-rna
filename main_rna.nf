@@ -98,8 +98,6 @@ process count_reads {
         """
 }
 
-
-
 workflow {
 	fastqs_grouped_by_lib = Channel
 	    .fromPath(params.samples_file)
