@@ -82,7 +82,7 @@ process count_reads {
 
         input:
                 tuple val(indiv_id), val(cell_type), path(bam), path(bai)
-		tuple path(vcf)
+		path vcf
 
         output:
                 tuple val(indiv_id), path(counts)
