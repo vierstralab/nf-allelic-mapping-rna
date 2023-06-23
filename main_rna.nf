@@ -118,7 +118,7 @@ process rmdup_wasp_style {
 
         output:
         tuple val(indiv_id), val(cell_type), path(out_bam), path("${out_bam}.bai"), emit: bam
-        tuple val(indiv_id), val(cell_type), path("${out_bam}.flagstat"), emit: qc
+        tuple val(indiv_id), val(cell_type), path("${out_bam}.flagstat"), path('.command.log'), emit: qc
 
         script:
         out_bam = "${indiv_id}.${cell_type}.rmdup.bam"
@@ -137,6 +137,9 @@ process rmdup_wasp_style {
 process count_reads {
         tag "${indiv_id}:${cell_type}"
         module "htslib/1.12:GATK/4.0.1.0"
+        container "${params.phaser_container}"
+        cpus 20
+
         publishDir params.outdir + "/read_counts"
 
         input:
@@ -144,28 +147,65 @@ process count_reads {
                 path vcf
 
         output:
-                tuple val(indiv_id), path(counts)
+                tuple val(indiv_id), path("${indiv_id}.${cell_type}.allel*")
 
         script:
-        counts = "${indiv_id}.${cell_type}.ase_counts.table"
         """
         bgzip ${vcf}
 
         tabix ${vcf}.gz
 
-        gatk ASEReadCounter \
-                -R ${params.genome_fasta_file} \
-                -I ${bam} \
-                -V ${vcf}.gz \
-                -O ${counts}
+        python2.7 /opt/phaser/phaser/phaser.py --vcf ${vcf}.gz --bam ${bam} --paired_end 1 --map 60 --baseq 10 --sample ${indiv_id} --o ${indiv_id}.${cell_type} --threads 20
         """
 }
 
 process compile_qc {
-	tag "${indiv_id}:${cell_type}"
-	publishDir params.outdir + "/qc"
+        /*
+        This process parces various logs with awk and collects the metrics into a sindle-line tsv table with meaningful header.
+        Flagstat files produced by different versions of samtools have different formats.
+        */
+        tag "${indiv_id}:${cell_type}"
+        publishDir params.outdir + "/qc"
+        input:
+                tuple val(indiv_id), val(cell_type), path(rmdup_flagstat), path(rmdup_log)
+                tuple path(STAR_log), path(raw_flagstat), path(filt_flagstat)
+        output:
+                path("${out}")
 
+        shell:
+        out="${indiv_id}.${cell_type}.qc.tsv"
+        '''
+        echo -e "\
+indiv_id\tcell_type\t\
+raw_flagstat_total_reads\t\
+raw_flagstat_%_mapped_reads\t\
+raw_star_%_removed_multimappers\t\
+raw_star_%_removed_by_length_score\t\
+wasp_filt_flagstat_total_reads\t\
+wasp_filt_flagstat_%_mapped_reads\t\
+wasp_filt_and_dedup_flagstat_total_reads\t\
+wasp_filt_and_dedup_flagstat_%_mapped_reads\t\
+wasp_filt_and_dedup_log_removed_unaligned_readpairs\t\
+wasp_filt_and_dedup_log_removed_duplicated_readpairs\t\
+wasp_filt_and_dedup_log_kept_readpairs\t\
+" > !{out}
+        echo -e "\
+!{indiv_id}\t!{cell_type}\t\
+$(awk 'NR==1 {print $1}' !{raw_flagstat})\t\
+$(awk 'NR==5 {split($5, a, "%"); sub(/[()]/, "", a[1]); print a[1]}' !{raw_flagstat})\t\
+$(grep "% of reads mapped to too many loci" !{STAR_log} | awk '{sub(/%/,"",$10); print $10}')\t\
+$(grep "% of reads unmapped: too short" !{STAR_log} | awk '{sub(/%/,"",$8); print $8}')\t\
+$(awk 'NR==1 {print $1}' !{filt_flagstat})\t\
+$(awk 'NR==5 {split($5, a, "%"); sub(/[()]/, "", a[1]); print a[1]}' !{filt_flagstat})\t\
+$(awk 'NR==1 {print $1}' !{rmdup_flagstat})\t\
+$(awk 'NR==7 {split($5, a, "%"); sub(/[()]/, "", a[1]); print a[1]}' !{rmdup_flagstat})\t\
+$(grep "  unmapped:" !{rmdup_log} | awk '{print $2}')\t\
+$(grep "  duplicate pairs:" !{rmdup_log} | awk '{print $3}')\t\
+$(grep "  pairs:" !{rmdup_log} | awk '{print $2}')\t\
+" >> !{out}
+        '''
 }
+
 
 workflow {
         fastqs_grouped_by_lib = Channel
@@ -177,6 +217,7 @@ workflow {
 
         vcf = generate_vcf(fastqs_grouped_by_lib)
         bam = align_and_filter(fastqs_grouped_by_lib, vcf)
-        rmdup_bam = rmdup_wasp_style(bam.out.bam)
-        count_reads(rmdup_bam.out.bam, vcf)
+        rmdup_bam = rmdup_wasp_style(bam.bam)
+        count_reads(rmdup_bam.bam, vcf)
+        compile_qc(rmdup_bam.qc, bam.qc)
 }
