@@ -136,7 +136,6 @@ process rmdup_wasp_style {
 
 process count_reads {
         tag "${indiv_id}:${cell_type}"
-        module "htslib/1.12:GATK/4.0.1.0"
         container "${params.phaser_container}"
         cpus 20
 
@@ -165,10 +164,13 @@ process compile_qc {
         Flagstat files produced by different versions of samtools have different formats.
         */
         tag "${indiv_id}:${cell_type}"
+        module "samtools/1.7"
         publishDir params.outdir + "/qc"
         input:
                 tuple val(indiv_id), val(cell_type), path(rmdup_flagstat), path(rmdup_log)
                 tuple path(STAR_log), path(raw_flagstat), path(filt_flagstat)
+                tuple val(indiv_id), val(cell_type), path(rmdup_bam), path(rmdup_bai)
+
         output:
                 path("${out}")
 
@@ -188,7 +190,9 @@ wasp_filt_and_dedup_flagstat_%_mapped_reads\t\
 wasp_filt_and_dedup_log_removed_unaligned_readpairs\t\
 wasp_filt_and_dedup_log_removed_duplicated_readpairs\t\
 wasp_filt_and_dedup_log_kept_readpairs\t\
+wasp_filt_and_dedup_sequins_mapped_reads
 " > !{out}
+
         echo -e "\
 !{indiv_id}\t!{cell_type}\t\
 $(awk 'NR==1 {print $1}' !{raw_flagstat})\t\
@@ -202,6 +206,7 @@ $(awk 'NR==7 {split($5, a, "%"); sub(/[()]/, "", a[1]); print a[1]}' !{rmdup_fla
 $(grep "  unmapped:" !{rmdup_log} | awk '{print $2}')\t\
 $(grep "  duplicate pairs:" !{rmdup_log} | awk '{print $3}')\t\
 $(grep "  pairs:" !{rmdup_log} | awk '{print $2}')\t\
+$(samtools view !{rmdup_bam} | grep -c chrIS)
 " >> !{out}
         '''
 }
@@ -219,5 +224,5 @@ workflow {
         bam = align_and_filter(fastqs_grouped_by_lib, vcf)
         rmdup_bam = rmdup_wasp_style(bam.bam)
         count_reads(rmdup_bam.bam, vcf)
-        compile_qc(rmdup_bam.qc, bam.qc)
+        compile_qc(rmdup_bam.qc, bam.qc, rmdup_bam.bam)
 }
