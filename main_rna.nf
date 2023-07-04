@@ -17,6 +17,8 @@ Additional inputs include:
  - genome_fai_file - gnome fai file.
  - wasp_container - a docker/apptainer container with WASP binaries.
  - wasp_path - path to WASP binaries in the container.
+ - phaser_container - a docker/apptainer container with phaser and all dependancies.
+ - genes_bed - file with gene coordinates in bed format for phaser.
 */
 
 process generate_vcf {
@@ -146,7 +148,8 @@ process count_reads {
                 path vcf
 
         output:
-                tuple val(indiv_id), path("${indiv_id}.${cell_type}.allel*")
+                path("${indiv_id}.${cell_type}.allel*")
+                path("${indiv_id}.${cell_type}.gene_ae_counts.txt")
 
         script:
         """
@@ -155,6 +158,8 @@ process count_reads {
         tabix ${vcf}.gz
 
         python2.7 /opt/phaser/phaser/phaser.py --vcf ${vcf}.gz --bam ${bam} --paired_end 1 --map 60 --baseq 10 --sample ${indiv_id} --o ${indiv_id}.${cell_type} --threads 20
+
+        python2.7 /opt/phaser/phaser_gene_ae/phaser_gene_ae.py --haplotypic_counts ${indiv_id}.${cell_type}.haplotypic_counts.txt --features ${params.genes_bed} --o ${indiv_id}.${cell_type}.gene_ae_counts.txt
         """
 }
 
