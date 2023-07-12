@@ -24,18 +24,18 @@ Additional inputs include:
 process generate_vcf {
         // This step is needed because STAR accepts variant information in the form of an uncompressed single-sample vcf.
         // Reheader part and fai-file are needed for GATK compatibility during the count_reads step.
-        tag "${indiv_id}:${cell_type}"
+        tag "${indiv_id}"
         module "bcftools/1.12"
         cpus 10
 
         input:
-        tuple val(indiv_id), val(cell_type), val(fastqs1), val(fastqs2)
+        val indiv_id
 
         output:
-        path("${out_vcf}")
+        tuple val("${indiv_id}"), path("${out_vcf}")
 
         script:
-        out_vcf = "${indiv_id}.${cell_type}.vcf"
+        out_vcf = "${indiv_id}.vcf"
         """
         bcftools view -a -s ${indiv_id} ${params.genotype_file} | bcftools view -g het -O v --threads 10 -o intermediate.vcf
 
@@ -62,12 +62,11 @@ process align_and_filter {
         memory "100 GB"
 
         input:
-        tuple val(indiv_id), val(cell_type), val(fastqs1), val(fastqs2)
-        path vcf
+        tuple val(indiv_id), val(cell_type), val(fastqs1), val(fastqs2), path(vcf)
 
         output:
         tuple val(indiv_id), val(cell_type), path("${out_bam}"), path("${out_bam}.bai"), emit: bam
-        tuple path('Log.final.out'), path('Aligned.out.bam.flagstat'), path('Aligned.out.filt.bam.flagstat'), emit: qc
+        tuple val(indiv_id), val(cell_type), path('Log.final.out'), path('Aligned.out.bam.flagstat'), path('Aligned.out.filt.bam.flagstat'), emit: qc
 
         script:
         out_bam = "${indiv_id}.${cell_type}.bam"
@@ -144,8 +143,7 @@ process count_reads {
         publishDir params.outdir + "/read_counts"
 
         input:
-                tuple val(indiv_id), val(cell_type), path(bam), path(bai)
-                path vcf
+                tuple val(indiv_id), val(cell_type), path(bam), path(bai), path(vcf)
 
         output:
                 path("${indiv_id}.${cell_type}.allel*")
@@ -172,9 +170,7 @@ process compile_qc {
         module "samtools/1.7"
         publishDir params.outdir + "/qc"
         input:
-                tuple val(indiv_id), val(cell_type), path(rmdup_flagstat), path(rmdup_log)
-                tuple path(STAR_log), path(raw_flagstat), path(filt_flagstat)
-                tuple val(indiv_id), val(cell_type), path(rmdup_bam), path(rmdup_bai)
+                tuple val(indiv_id), val(cell_type), path(rmdup_flagstat), path(rmdup_log), path(STAR_log), path(raw_flagstat), path(filt_flagstat), path(rmdup_bam), path(rmdup_bai)
 
         output:
                 path("${out}")
@@ -225,9 +221,24 @@ workflow {
             .groupTuple(by: [0,1])
             .map{ it -> tuple(it[0], it[1], it[2].flatten().join(",").replace(";",","), it[3].flatten().join(",").replace(";",",")) }
 
-        vcf = generate_vcf(fastqs_grouped_by_lib)
-        bam = align_and_filter(fastqs_grouped_by_lib, vcf)
+        vcf = fastqs_grouped_by_lib
+		.map{ it -> it[0] }
+		.unique()
+		| generate_vcf
+
+        bam = vcf
+		.cross(fastqs_grouped_by_lib)
+		.map{ it -> it[1..0].flatten()[0..3,5] }  // indiv_id, cell_type, r1-fastq, r2-fastq, vcf
+		| align_and_filter
+
         rmdup_bam = rmdup_wasp_style(bam.bam)
-        count_reads(rmdup_bam.bam, vcf)
-        compile_qc(rmdup_bam.qc, bam.qc, rmdup_bam.bam)
+
+        vcf.cross(rmdup_bam.bam)
+		.map{ it -> it[1..0].flatten()[0..3,5] } // indiv_id, cell_type, bam, bai, vcf
+		| count_reads
+
+	rmdup_bam.qc
+		.join( bam.qc, by: [0,1] )
+		.join( rmdup_bam.bam, by: [0,1] )
+		| compile_qc
 }
