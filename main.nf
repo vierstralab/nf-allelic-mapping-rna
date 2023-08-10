@@ -39,7 +39,7 @@ process generate_vcf {
         """
         bcftools view -a -s ${indiv_id} ${params.genotype_file} | bcftools view -g het -O v --threads 10 -o intermediate.vcf
 
-        bcftools reheader --fai ${params.genome_fai_file} --threads 10 -o ${out_vcf} intermediate.vcf
+        bcftools reheader --fai ${params.genome_fai_file} --threads ${task.cpus} -o ${out_vcf} intermediate.vcf
 
         rm intermediate.vcf
         """
